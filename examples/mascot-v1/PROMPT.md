@@ -1,0 +1,7 @@
+# Final prompt — built-in image_gen
+
+Use case: stylized-concept
+
+Asset type: 2x2 animation sprite sheet for a Thai personal finance React Native app. Create an ORIGINAL friendly adult female anime chibi mascot, modest and wholesome, waist-up, holding a small lavender expense notebook in her left arm and waving with her right hand. Short dark navy hair with soft lavender highlights, blue eyes, white blouse and pastel periwinkle cardigan, small mint hair clip. Clean polished Japanese anime illustration, soft cel shading, crisp silhouette, palette blue/purple/mint matching a calm finance app. No text or numbers or logos.
+
+Animation: exactly FOUR equal square cells in a 2x2 square canvas, no borders or separators. Same character, same size, same camera, head position, body baseline and notebook in ALL cells. Top-left: smiling with eyes open and right hand raised. Top-right: same pose, gentle blink with eyes closed. Bottom-left: eyes open with right wrist tilted left in a wave. Bottom-right: eyes open with right wrist tilted right in a wave. Only eyelids and waving hand change; identity, outfit, proportions, body placement identical. Each figure centered within its own cell, entire hair, raised hand, notebook and waist visible, with at least 12 percent transparent padding on every side of each cell. No overlap between cells. Background genuinely transparent with alpha, no shadow backdrop, no decorative objects outside the character. This is a production animation asset, not a mockup.

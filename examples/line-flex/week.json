@@ -1,0 +1,290 @@
+{
+  "type": "flex",
+  "altText": "สรุปสัปดาห์ ใช้ไป ฿5,070.00 · รอข้อมูล 3 สลิป",
+  "contents": {
+    "type": "bubble",
+    "header": {
+      "type": "box",
+      "layout": "horizontal",
+      "alignItems": "center",
+      "spacing": "sm",
+      "backgroundColor": "#5564dc",
+      "contents": [
+        {
+          "type": "box",
+          "layout": "vertical",
+          "flex": 1,
+          "spacing": "xs",
+          "contents": [
+            {
+              "type": "text",
+              "text": "Expense Tracker",
+              "color": "#ffffff",
+              "size": "xs",
+              "wrap": true
+            },
+            {
+              "type": "text",
+              "text": "สรุปสัปดาห์",
+              "color": "#ffffff",
+              "weight": "bold",
+              "size": "lg",
+              "wrap": true
+            },
+            {
+              "type": "text",
+              "text": "ใช้ไป",
+              "color": "#e0e4ff",
+              "size": "sm"
+            },
+            {
+              "type": "text",
+              "text": "฿5,070.00",
+              "color": "#ffffff",
+              "weight": "bold",
+              "size": "xxl",
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "url": "https://expense-tracker.example/line/mascot-thinking-v2.png",
+          "size": "88px",
+          "aspectRatio": "1:1",
+          "aspectMode": "fit",
+          "flex": 0
+        }
+      ]
+    },
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "spacing": "md",
+      "contents": [
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "text",
+              "text": "รายรับ",
+              "size": "sm",
+              "color": "#667085",
+              "flex": 2
+            },
+            {
+              "type": "text",
+              "text": "฿0.00",
+              "size": "sm",
+              "weight": "bold",
+              "align": "end",
+              "flex": 3,
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "text",
+              "text": "เงินสุทธิ",
+              "size": "sm",
+              "color": "#667085",
+              "flex": 2
+            },
+            {
+              "type": "text",
+              "text": "-฿5,070.00",
+              "size": "sm",
+              "weight": "bold",
+              "align": "end",
+              "flex": 3,
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "type": "separator"
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "text",
+              "text": "ttb",
+              "size": "sm",
+              "color": "#667085",
+              "flex": 2
+            },
+            {
+              "type": "text",
+              "text": "จ่าย ฿1,470.00 · รับ ฿0.00",
+              "size": "sm",
+              "weight": "bold",
+              "align": "end",
+              "flex": 3,
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "text",
+              "text": "K-PLUS",
+              "size": "sm",
+              "color": "#667085",
+              "flex": 2
+            },
+            {
+              "type": "text",
+              "text": "จ่าย ฿1,080.00 · รับ ฿0.00",
+              "size": "sm",
+              "weight": "bold",
+              "align": "end",
+              "flex": 3,
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "text",
+              "text": "Krungthai",
+              "size": "sm",
+              "color": "#667085",
+              "flex": 2
+            },
+            {
+              "type": "text",
+              "text": "จ่าย ฿720.00 · รับ ฿0.00",
+              "size": "sm",
+              "weight": "bold",
+              "align": "end",
+              "flex": 3,
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "text",
+              "text": "MAKE",
+              "size": "sm",
+              "color": "#667085",
+              "flex": 2
+            },
+            {
+              "type": "text",
+              "text": "จ่าย ฿1,200.00 · รับ ฿0.00",
+              "size": "sm",
+              "weight": "bold",
+              "align": "end",
+              "flex": 3,
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "text",
+              "text": "เงินสด",
+              "size": "sm",
+              "color": "#667085",
+              "flex": 2
+            },
+            {
+              "type": "text",
+              "text": "จ่าย ฿600.00 · รับ ฿0.00",
+              "size": "sm",
+              "weight": "bold",
+              "align": "end",
+              "flex": 3,
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "text",
+              "text": "หมวดสูงสุด",
+              "size": "sm",
+              "color": "#667085",
+              "flex": 2
+            },
+            {
+              "type": "text",
+              "text": "อาหาร",
+              "size": "sm",
+              "weight": "bold",
+              "align": "end",
+              "flex": 3,
+              "wrap": true
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "รอข้อมูล 3 สลิป · ไม่รวมในยอด",
+          "wrap": true,
+          "size": "xs",
+          "color": "#94703a"
+        },
+        {
+          "type": "text",
+          "text": "ตรวจ Drive สำเร็จครบ 4 แหล่ง · รวมรายการเงินสดที่บันทึกเอง",
+          "wrap": true,
+          "size": "xs",
+          "color": "#667085"
+        }
+      ]
+    },
+    "footer": {
+      "type": "box",
+      "layout": "horizontal",
+      "spacing": "sm",
+      "contents": [
+        {
+          "type": "button",
+          "flex": 1,
+          "adjustMode": "shrink-to-fit",
+          "action": {
+            "type": "uri",
+            "label": "ดูสลิปรอข้อมูล",
+            "uri": "https://expense-tracker.example/slips"
+          }
+        },
+        {
+          "type": "button",
+          "flex": 1,
+          "adjustMode": "shrink-to-fit",
+          "style": "primary",
+          "color": "#5564dc",
+          "action": {
+            "type": "uri",
+            "label": "ดู Dashboard",
+            "uri": "https://expense-tracker.example"
+          }
+        }
+      ]
+    }
+  }
+}

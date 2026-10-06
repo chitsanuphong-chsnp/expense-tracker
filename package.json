@@ -1,0 +1,26 @@
+{
+  "name": "expense-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run web -w @expense/app",
+    "preview": "node scripts/preview.mjs",
+    "dev:api": "npm run dev -w @expense/api",
+    "test": "vitest run",
+    "typecheck": "tsc -p packages/core && tsc -p apps/api && tsc -p apps/app",
+    "build": "npm run build -w @expense/api && npm run build -w @expense/app"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@types/node": "^22.19.0",
+    "@types/qrcode": "^1.5.5",
+    "qrcode": "^1.5.4",
+    "typescript": "~5.9.2",
+    "vitest": "^5.0.3"
+  }
+}

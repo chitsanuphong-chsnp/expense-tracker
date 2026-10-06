@@ -1,0 +1,89 @@
+{
+  "size": {
+    "width": 2500,
+    "height": 1686
+  },
+  "selected": true,
+  "name": "Expense Tracker",
+  "chatBarText": "เมนูการเงิน",
+  "areas": [
+    {
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 833,
+        "height": 843
+      },
+      "action": {
+        "type": "uri",
+        "label": "ภาพรวม",
+        "uri": "https://expense-tracker.example/"
+      }
+    },
+    {
+      "bounds": {
+        "x": 833,
+        "y": 0,
+        "width": 833,
+        "height": 843
+      },
+      "action": {
+        "type": "uri",
+        "label": "บันทึกรายการ",
+        "uri": "https://expense-tracker.example/record"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1666,
+        "y": 0,
+        "width": 834,
+        "height": 843
+      },
+      "action": {
+        "type": "uri",
+        "label": "รายการย้อนหลัง",
+        "uri": "https://expense-tracker.example/transactions"
+      }
+    },
+    {
+      "bounds": {
+        "x": 0,
+        "y": 843,
+        "width": 833,
+        "height": 843
+      },
+      "action": {
+        "type": "uri",
+        "label": "รายงาน",
+        "uri": "https://expense-tracker.example/reports"
+      }
+    },
+    {
+      "bounds": {
+        "x": 833,
+        "y": 843,
+        "width": 833,
+        "height": 843
+      },
+      "action": {
+        "type": "uri",
+        "label": "สลิปรอข้อมูล",
+        "uri": "https://expense-tracker.example/slips"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1666,
+        "y": 843,
+        "width": 834,
+        "height": 843
+      },
+      "action": {
+        "type": "uri",
+        "label": "ตั้งค่า",
+        "uri": "https://expense-tracker.example/settings"
+      }
+    }
+  ]
+}

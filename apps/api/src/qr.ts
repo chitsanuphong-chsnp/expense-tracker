@@ -1,5 +1,8 @@
 import sharp from 'sharp';
-import jsQR from 'jsqr';
+import {createRequire} from 'node:module';
+import type {QRCode,Options} from 'jsqr';
+// jsqr is CommonJS; load its callable export consistently in Node and Vercel.
+const jsQR=createRequire(import.meta.url)('jsqr') as (data:Uint8ClampedArray,width:number,height:number,options?:Options)=>QRCode|null;
 import { createHash } from 'node:crypto';
 import { slipVerify } from 'promptparse/validate';
 

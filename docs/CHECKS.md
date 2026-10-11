@@ -129,6 +129,19 @@ Patched image processing to sharp 0.35.5 and tests to Vitest 5.0.3. The installe
 
 - LINE Flex redesign: compact gradient header (linearGradient box background with solid fallback) with title, amount, item count and a 60 px mascot; accounts with colour dots (no categories or share bars, since most spending is uncategorised); tinted status box (pending, OCR draft, own transfers); secondary/primary buttons. In-app preview renders the same payload (gradient, radius, padding, widths) on a light bubble in both themes. Payload under 30 KB (test).
 
+## 11 Oct 2026 (later): transfers count as spending, manual import sends no LINE, success modal, import progress
+- Spending ("ใช้ไป") now includes own-account transfers (counted on the source account) in the app, reports and Flex; the "ไม่รวมโอนระหว่างบัญชี" captions are gone; OCR drafts that look like own transfers join the draft total.
+- Transaction rows all look the same (red, "-"); a transfer row shows "ต้นทาง → ปลายทาง". The type filter is removed; filters are tidy rows (dates, then account and category chips that scroll sideways) with an active count and a clear button.
+- "ดึงสลิปตอนนี้" runs only scan/QR jobs (`tick(...,importOnly)`): it no longer queues or sends LINE reports. Test `tests/import-only-tick.test.ts`.
+- Import progress bar polls `GET /api/sync/status` (pending/done/slips found). Checked with a mocked API: 0:01 searching, 0:04 1/7, 0:07 3/7, then the check modal.
+- Success modal after every successful action (auto-closes ~1.2 s). Checked: delete transaction → modal → list 21 → 20.
+- Inputs 16 px so iOS does not zoom on focus.
+- Flex: the "ดูสลิปรอข้อมูล" button also hides when nothing is pending.
+- 103 tests pass; typecheck and build pass.
+
+## 11 Oct 2026 (later): Flex hides empty pending notes
+- The "รอข้อมูล N สลิป" line shows only when N > 0; the yellow status box is left out when it has no lines; altText drops the pending part at 0. New test in `tests/flex.test.ts` (101 tests). Preview checked with 0 pending.
+
 ## 11 Oct 2026 (later): no "จ่าย" wording, number-free opening animation
 - Every remaining "จ่าย" in the app, the Flex empty state and the docs now reads "ใช้ไป" (e.g. "ยังไม่มียอดใช้ไปในช่วงนี้", picker "ไม่ใช่ (ใช้ไป)", demo category "ทั่วไป").
 - Opening animation trimmed to the final scene: gradient, wallet icon pops with a spreading ring, bars grow one by one, title rises, then fade. No amounts, no slip card (~2.2 s).

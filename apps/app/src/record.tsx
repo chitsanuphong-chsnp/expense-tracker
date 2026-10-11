@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useRouter,useLocalSearchParams} from 'expo-router';
 import {parseMoney,thaiDate,transactionInput,likelyOwnTransfer,accountForMask,type Transaction} from '@expense/core';
 import {useData,newId} from './state';
+import {useSuccess} from './success';
 import {T,Card,Button,ActionRow,Field,Choices,Badge,C,s} from './ui';
 import {useMotion} from './motion';
 import {DateField} from './calendar';
@@ -20,7 +21,7 @@ export function Record(){
   return <RecordForm key={`${params.id??'new'}:${params.slip??'manual'}`}/>;
 }
 function RecordForm(){
-  const {reduced}=useMotion(),state=useData(),router=useRouter(),{width}=useWindowDimensions(),params=useLocalSearchParams<{id?:string;slip?:string}>();
+  const {reduced}=useMotion(),success=useSuccess(),state=useData(),router=useRouter(),{width}=useWindowDimensions(),params=useLocalSearchParams<{id?:string;slip?:string}>();
   const old=state.data.transactions.find(t=>t.id===params.id),slip=state.data.slips.find(s=>s.id===params.slip||(!!old&&s.transaction_id===old.id));
   const ownHint=!old&&likelyOwnTransfer(slip?.ocr_details,state.data.settings.own_names,state.data.accounts);
   const [amount,setAmount]=useState(old?String(old.amount_satang/100):slip?.ocr_details?.amount_satang!=null?String(slip.ocr_details.amount_satang/100):''),[account,setAccount]=useState(old?.account_id??state.data.accounts[0]?.id??''),[toAccount,setToAccount]=useState(old?.to_account_id??accountForMask(slip?.ocr_details?.recipient_account,state.data.accounts)?.id??''),[category,setCategory]=useState<string|null>(old?.category_id??null),[date,setDate]=useState(old?thaiDate(old.occurred_at):slip?.ocr_details?.date??thaiDate()),[time,setTime]=useState(old?timeOf(old.occurred_at):slip?.ocr_details?.time??timeOf(new Date())),[note,setNote]=useState(old?.note??''),[counterparty,setCounterparty]=useState(old?.counterparty??slip?.ocr_details?.recipient??''),[remember,setRemember]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirm,setConfirm]=useState(false),[remembered,setRemembered]=useState(false);
@@ -55,6 +56,7 @@ function RecordForm(){
         if(state.demo)state.updateLocal(d=>({...d,rules:[...d.rules.filter(r=>r.counterparty!==counterparty.trim()),{id:newId(),counterparty:counterparty.trim(),category_id:category}]}));
         else await state.call('/rules','POST',{counterparty:counterparty.trim(),category_id:category});
       }
+      success(old?'บันทึกการแก้ไขแล้ว':'บันทึกรายการแล้ว');
       router.replace(params.slip?'/slips':'/transactions');
     }catch(e){setMessage(e instanceof Error?e.message:'บันทึกไม่สำเร็จ');}finally{setBusy(false);}
   }
@@ -74,6 +76,6 @@ function RecordForm(){
         {!!message&&<T accessibilityRole="alert" style={{color:C.red}}>{message}</T>}<ActionRow testID="record-actions">{old&&<Button secondary disabled={busy} onPress={()=>setConfirm(true)}>ลบรายการนี้</Button>}<Button loading={busy} onPress={()=>void submit()}>บันทึกรายการ</Button></ActionRow>
       </View>
     </View>
-    <Modal transparent visible={confirm} animationType={reduced?'none':'fade'} onRequestClose={()=>setConfirm(false)}><View style={{flex:1,backgroundColor:tone('#20305060'),justifyContent:'center',padding:25}}><Card style={{maxWidth:430,width:'100%',alignSelf:'center',gap:18}}>{confirm&&<ModalCompanion title="ลบรายการนี้?" pose="thinking"/>}<T>ยอดจะถูกนำออกจากรายงาน สลิปที่เชื่อมจะกลับไปรอกรอกข้อมูล</T><ActionRow testID="modal-actions"><Button secondary onPress={()=>setConfirm(false)}>ยกเลิก</Button><Button onPress={()=>{setConfirm(false);state.remove(old!.id).then(()=>router.replace('/transactions')).catch(e=>setMessage(e.message));}}>ยืนยันลบ</Button></ActionRow></Card></View></Modal>
+    <Modal transparent visible={confirm} animationType={reduced?'none':'fade'} onRequestClose={()=>setConfirm(false)}><View style={{flex:1,backgroundColor:tone('#20305060'),justifyContent:'center',padding:25}}><Card style={{maxWidth:430,width:'100%',alignSelf:'center',gap:18}}>{confirm&&<ModalCompanion title="ลบรายการนี้?" pose="thinking"/>}<T>ยอดจะถูกนำออกจากรายงาน สลิปที่เชื่อมจะกลับไปรอกรอกข้อมูล</T><ActionRow testID="modal-actions"><Button secondary onPress={()=>setConfirm(false)}>ยกเลิก</Button><Button onPress={()=>{setConfirm(false);state.remove(old!.id).then(()=>{success('ลบรายการแล้ว');router.replace('/transactions');}).catch(e=>setMessage(e.message));}}>ยืนยันลบ</Button></ActionRow></Card></View></Modal>
   </Card>;
 }

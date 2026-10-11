@@ -8,7 +8,7 @@ import { transactionInput,summarize,transactionsCsv,sourceCodes,thaiDate,rangeFo
 import { admin,configured,checked,dataset,userDb,rows } from './db.ts';
 import { signatureValid,pushReport } from './line.ts';
 import { decodeQr } from './qr.ts';
-import { tick,enqueueScan,pendingImportJobs } from './worker.ts';
+import { tick,enqueueScan,pendingImportJobs,importProgress } from './worker.ts';
 import { downloadFile,assertDriveOwner } from './drive.ts';
 import type {User} from '@supabase/supabase-js';
 import {verifiedUser,accountInfo} from './auth-user.ts';
@@ -17,7 +17,7 @@ type Env={Variables:{owner:string;token:string;user:User}};
 const uuid=z.string().uuid();
 function secureEqual(a:string,b:string) { const aa=Buffer.from(a),bb=Buffer.from(b);return aa.length===bb.length&&timingSafeEqual(aa,bb); }
 async function runImportNow(owner:string) {
-  const result=await tick(new Date(),60000);
+  const result=await tick(new Date(),60000,true);
   return {...result,pending:await pendingImportJobs(owner)};
 }
 export function createApp() {
@@ -130,6 +130,11 @@ export function createApp() {
       for(let start=0;start<pending.length;start+=100)checked(await db.from('jobs').upsert(pending.slice(start,start+100).map((s:any)=>({owner_id:owner,job_key:`ocr-backfill:${s.id}:${key}`,kind:'qr',payload:{slip_id:s.id}})),{onConflict:'owner_id,job_key',ignoreDuplicates:true}));
     }
     return c.json({queued:chosen.length,...await runImportNow(owner)});
+  });
+  // Polled by the app's progress bar while an import runs (read only).
+  app.get('/api/sync/status',async c=>{
+    const since=z.string().datetime().parse(c.req.query('since'));
+    return c.json(await importProgress(c.get('owner'),since));
   });
   // Continues a manual import. The shared tick lease keeps it from overlapping a scheduled run.
   app.post('/api/sync/run',async c=>{

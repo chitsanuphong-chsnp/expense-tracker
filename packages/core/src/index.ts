@@ -90,13 +90,16 @@ export function summarize(data: Dataset, start: string, end: string, pendingEnd 
   const pending = data.slips.filter(s => ['needs_details','qr_unreadable','queued','processing','failed'].includes(s.status) && new Date(s.uploaded_at).getTime() >= pendingFrom && new Date(s.uploaded_at).getTime() < pendingUntil);
   // Unreviewed OCR amounts are shown beside the totals, never added to them.
   const readable = pending.filter(s => !s.ocr_details?.error && Number.isSafeInteger(s.ocr_details?.amount_satang) && s.ocr_details!.amount_satang! > 0);
-  const own = readable.filter(s => likelyOwnTransfer(s.ocr_details, data.settings.own_names, data.accounts)), drafts = readable.filter(s => !own.includes(s));
+  // Own-account transfers count as spending too, so their drafts join the draft total; own_transfers stays as a hint count.
+  const own = readable.filter(s => likelyOwnTransfer(s.ocr_details, data.settings.own_names, data.accounts)), drafts = readable;
   const rows = data.transactions.filter(t => new Date(t.occurred_at).getTime() >= from && new Date(t.occurred_at).getTime() < until);
-  const sum = (kind: string) => rows.filter(t => t.kind === kind).reduce((n, t) => n + t.amount_satang, 0);
-  const income = sum('income'), expense = sum('expense');
-  return { income, expense, net: income - expense, count: rows.filter(t => t.kind !== 'transfer').length,
-    byAccount: data.accounts.map(a => ({ id: a.id, name: a.name, color: a.color, income: rows.filter(t => t.account_id === a.id && t.kind === 'income').reduce((n,t)=>n+t.amount_satang,0), expense: rows.filter(t=>t.account_id===a.id&&t.kind==='expense').reduce((n,t)=>n+t.amount_satang,0) })),
-    byCategory: [...data.categories, { id: 'uncategorized', name: 'ยังไม่จัดหมวด', color: '#a2abc0' }].map(c => ({ ...c, expense: rows.filter(t => (t.category_id ?? 'uncategorized') === c.id && t.kind === 'expense').reduce((n,t)=>n+t.amount_satang,0) })).sort((a,b)=>b.expense-a.expense),
+  // Spending ("ใช้ไป") includes transfers between own accounts, counted on the source account.
+  const spends = (t: Transaction) => t.kind === 'expense' || t.kind === 'transfer';
+  const spent = rows.filter(spends), total = (list: Transaction[]) => list.reduce((n, t) => n + t.amount_satang, 0);
+  const income = total(rows.filter(t => t.kind === 'income')), expense = total(spent);
+  return { income, expense, net: income - expense, count: spent.length,
+    byAccount: data.accounts.map(a => ({ id: a.id, name: a.name, color: a.color, income: total(rows.filter(t => t.account_id === a.id && t.kind === 'income')), expense: total(spent.filter(t => t.account_id === a.id)) })),
+    byCategory: [...data.categories, { id: 'uncategorized', name: 'ยังไม่จัดหมวด', color: '#a2abc0' }].map(c => ({ ...c, expense: total(spent.filter(t => (t.category_id ?? 'uncategorized') === c.id)) })).sort((a,b)=>b.expense-a.expense),
     pending: pending.length,
     ocr_draft: { amount_satang: drafts.reduce((n, s) => n + s.ocr_details!.amount_satang!, 0), slips: drafts.length, own_transfers: own.length } };
 }
@@ -159,9 +162,10 @@ export function flexReport(summary:Summary,key:string,origin:string,syncStatus:s
   const heading=(value:string):FlexNode=>text(value,{size:'xs',color:'#8a94a8',weight:'bold'});
   // Most spending has no category, so the Flex lists accounts only. Spending only.
   const accounts=summary.byAccount.filter(a=>a.expense).map(a=>line(a.color,a.name,money(a.expense)));
-  const notes:FlexNode[]=[text(`รอข้อมูล ${summary.pending} สลิป · ไม่รวมในยอด`,{size:'xs',color:'#94703a'})];
+  // Status notes appear only when there is something to report (no "0 slips" lines).
+  const notes:FlexNode[]=[];
+  if(summary.pending)notes.push(text(`รอข้อมูล ${summary.pending} สลิป · ไม่รวมในยอด`,{size:'xs',color:'#94703a'}));
   if(summary.ocr_draft?.slips)notes.push(text(`ร่าง OCR ยังไม่ตรวจ ${money(summary.ocr_draft.amount_satang)} (${summary.ocr_draft.slips} สลิป) · ไม่รวมในยอด`,{size:'xs',color:'#94703a'}));
-  if(summary.ocr_draft?.own_transfers)notes.push(text(`โอนเข้าบัญชีตัวเอง ${summary.ocr_draft.own_transfers} สลิป · ไม่รวมในยอด`,{size:'xs',color:'#94703a'}));
   const mascotUrl=flexMascotUrl(key,origin);
   // Compact header: title, amount and one line of detail; small mascot.
   const header:FlexBox={type:'box',layout:'horizontal',alignItems:'center',spacing:'sm',paddingAll:'16px',backgroundColor:'#5564dc',background:{type:'linearGradient',angle:'135deg',startColor:'#4876e2',endColor:'#7756ca'},contents:[
@@ -173,10 +177,11 @@ export function flexReport(summary:Summary,key:string,origin:string,syncStatus:s
   const body:FlexBox={type:'box',layout:'vertical',spacing:'md',paddingAll:'18px',contents:[
     heading('แยกตามบัญชี'),
     ...(accounts.length?accounts:[text('ไม่มียอดใช้ไปในช่วงนี้',{size:'xs',color:'#8a94a8'})]),
-    {type:'box',layout:'vertical',spacing:'xs',margin:'md',paddingAll:'12px',cornerRadius:'12px',backgroundColor:'#fff7e8',contents:notes},
+    ...(notes.length?[{type:'box' as const,layout:'vertical' as const,spacing:'xs',margin:'md',paddingAll:'12px',cornerRadius:'12px',backgroundColor:'#fff7e8',contents:notes}]:[]),
     text(syncStatus,{size:'xxs',color:'#8a94a8'})]};
+  // The pending-slips button only shows when there are pending slips.
   const footer:FlexBox={type:'box',layout:'horizontal',spacing:'sm',paddingAll:'14px',contents:[
-    {type:'button',style:'secondary',height:'sm',flex:1,adjustMode:'shrink-to-fit',action:{type:'uri',label:'ดูสลิปรอข้อมูล',uri:`${origin}/slips`}},
+    ...(summary.pending?[{type:'button' as const,style:'secondary' as const,height:'sm' as const,flex:1,adjustMode:'shrink-to-fit' as const,action:{type:'uri' as const,label:'ดูสลิปรอข้อมูล',uri:`${origin}/slips`}}]:[]),
     {type:'button',style:'primary',height:'sm',flex:1,adjustMode:'shrink-to-fit',color:'#5564dc',action:{type:'uri',label:'ดู Dashboard',uri:origin}}]};
-  return {type:'flex',altText:`${title} ใช้ไป ${money(summary.expense)} · รอข้อมูล ${summary.pending} สลิป`,contents:{type:'bubble',size:'mega',header,body,footer}};
+  return {type:'flex',altText:`${title} ใช้ไป ${money(summary.expense)}${summary.pending?` · รอข้อมูล ${summary.pending} สลิป`:''}`,contents:{type:'bubble',size:'mega',header,body,footer}};
 }

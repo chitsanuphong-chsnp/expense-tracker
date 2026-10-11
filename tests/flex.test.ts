@@ -38,9 +38,16 @@ it('titles daily reports by date and shows unreviewed OCR drafts apart from tota
   const message=flexReport(summary,'day:2026-10-10','https://app.example','ตรวจสำเร็จ');
   expect(texts(message.contents.header.contents)).toContain('สรุปวันที่ 10 ต.ค.');
   expect(texts(message.contents.body.contents).find(t=>t.startsWith('ร่าง OCR'))).toMatch(/^ร่าง OCR ยังไม่ตรวจ .*1,250.* \(5 สลิป\) · ไม่รวมในยอด$/);
-  expect(texts(message.contents.body.contents).some(t=>t.startsWith('โอนเข้าบัญชีตัวเอง'))).toBe(false);
+  // Own-account transfers are spending too: no separate line in LINE.
   const own=flexReport({...summary,ocr_draft:{amount_satang:125000,slips:5,own_transfers:2}},'day:2026-10-10','https://app.example','ตรวจสำเร็จ');
-  expect(texts(own.contents.body.contents)).toContain('โอนเข้าบัญชีตัวเอง 2 สลิป · ไม่รวมในยอด');
+  expect(texts(own.contents.body.contents).some(t=>t.startsWith('โอนเข้าบัญชีตัวเอง'))).toBe(false);
   const none=flexReport({...summary,ocr_draft:{amount_satang:0,slips:0}},'day:2026-10-10','https://app.example','ตรวจสำเร็จ');
   expect(texts(none.contents.body.contents).some(t=>t.startsWith('ร่าง OCR'))).toBe(false);
+});
+it('leaves out the pending-slip note, note box and button when nothing is pending',()=>{
+  const message=flexReport({...example('day'),pending:0,ocr_draft:{amount_satang:0,slips:0}},'day:2026-10-10','https://app.example','ตรวจสำเร็จ');
+  expect(texts(message.contents.body.contents).some(t=>t.startsWith('รอข้อมูล'))).toBe(false);
+  expect(message.contents.body.contents.some(node=>node.type==='box'&&node.backgroundColor==='#fff7e8')).toBe(false);
+  expect(message.altText).not.toContain('รอข้อมูล');
+  expect(message.contents.footer.contents.map(node=>node.type==='button'?node.action.label:'')).toEqual(['ดู Dashboard']);
 });

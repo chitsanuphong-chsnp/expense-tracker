@@ -10,6 +10,7 @@ const apiErrors:Record<string,string>={
   DRIVE_NOT_CONFIGURED:'ยังไม่ได้ตั้งค่า Google Drive ใน Vercel',LINE_NOT_CONNECTED:'ยังไม่ได้เชื่อม LINE',
   OCR_NOT_CONFIGURED:'ยังไม่เปิด OCR (OCR_ENABLED ใน Vercel)',IMPORT_RUNNING:'กำลังนำเข้าสลิปอยู่ รอสักครู่แล้วลองใหม่',
   ACCOUNT_IN_USE:'บัญชีนี้มีรายการอยู่ ลบรายการหรือรีเซ็ตก่อน',INVALID_INPUT:'ข้อมูลไม่ถูกต้อง',CONFLICT:'ข้อมูลซ้ำกับที่มีอยู่',
+  CANCELLED:'ยกเลิกแล้ว',TIMEOUT:'รอนานเกินไป ลองใหม่อีกครั้ง',NETWORK_ERROR:'เชื่อมต่อระบบไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่',
   IMAGE_TOO_LARGE:'รูปใหญ่เกินไป',UNAUTHORIZED:'กรุณาเข้าสู่ระบบใหม่',DATABASE_ERROR:'บันทึกลงฐานข้อมูลไม่สำเร็จ',REQUEST_FAILED:'ระบบขัดข้อง ลองใหม่อีกครั้ง',
 };
 export {supabase} from './auth-client';
@@ -27,7 +28,7 @@ function demoData():Dataset {
   }
   return {...empty,accounts,categories,transactions,slips:[{id:newId(),source_code:'ttb',status:'needs_details',uploaded_at:new Date(`${today}T20:00:00+07:00`).toISOString(),transaction_id:null,qr_payload:'ตัวอย่าง QR · ยังไม่มียอดธุรกรรม',duplicate_of:null,error_code:null,drive_file_id:'demo-slip',name:'สลิปตัวอย่างรอกรอกยอด'},{id:newId(),source_code:'kplus',status:'qr_unreadable',uploaded_at:new Date(`${today}T19:00:00+07:00`).toISOString(),transaction_id:null,qr_payload:null,duplicate_of:null,error_code:'QR_NOT_FOUND',drive_file_id:'demo-slip-2',name:'สลิปตัวอย่าง QR ไม่ชัด'}]};
 }
-type State={data:Dataset;loading:boolean;error:string;demo:boolean;session:Session|null;recovery:boolean;finishRecovery:()=>void;ready:boolean;configured:boolean;refresh:()=>Promise<void>;startDemo:()=>Promise<void>;signIn:(email:string,password:string)=>Promise<void>;signOut:()=>Promise<void>;save:(id:string,input:TransactionInput,slip?:string)=>Promise<void>;remove:(id:string)=>Promise<void>;link:(slip:string,transaction:string)=>Promise<void>;call:(path:string,method?:string,body?:unknown)=>Promise<any>;updateLocal:(fn:(d:Dataset)=>Dataset)=>void;image:(id:string)=>Promise<string>};
+type State={data:Dataset;loading:boolean;error:string;demo:boolean;session:Session|null;recovery:boolean;finishRecovery:()=>void;ready:boolean;configured:boolean;refresh:()=>Promise<void>;startDemo:()=>Promise<void>;signIn:(email:string,password:string)=>Promise<void>;signOut:()=>Promise<void>;save:(id:string,input:TransactionInput,slip?:string)=>Promise<void>;remove:(id:string)=>Promise<void>;link:(slip:string,transaction:string)=>Promise<void>;call:(path:string,method?:string,body?:unknown,options?:{timeoutMs?:number;signal?:AbortSignal})=>Promise<any>;updateLocal:(fn:(d:Dataset)=>Dataset)=>void;image:(id:string)=>Promise<string>};
 const Context=createContext<State>(null!);
 export function DataProvider({children}:{children:React.ReactNode}) {
   const [data,setData]=useState<Dataset>(empty),[loading,setLoading]=useState(false),[ready,setReady]=useState(false),[error,setError]=useState(''),[demo,setDemo]=useState(false),[session,setSession]=useState<Session|null>(null);
@@ -39,9 +40,16 @@ export function DataProvider({children}:{children:React.ReactNode}) {
     const appState=Platform.OS==='web'?null:AppState.addEventListener('change',value=>{if(value==='active')supabase?.auth.startAutoRefresh();else supabase?.auth.stopAutoRefresh();});
     return()=>{live=false;refreshVersion.current++;sub?.data.subscription.unsubscribe();appState?.remove();};},[]);
   useEffect(()=>{if(demo&&ready)AsyncStorage.setItem('shzr.demo',JSON.stringify(data)).catch(()=>setError('บันทึกข้อมูลตัวอย่างในเครื่องไม่สำเร็จ'));},[data,demo,ready]);
-  async function call(path:string,method='GET',body?:unknown){
+  // Long imports pass a longer timeout; a caller's signal (the import cancel button) stops waiting early.
+  async function call(path:string,method='GET',body?:unknown,options:{timeoutMs?:number;signal?:AbortSignal}={}){
     if(!session)throw new Error('กรุณาเข้าสู่ระบบ');
-    const response=await fetch(`${apiOrigin}/api${path}`,{method,headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),options.timeoutMs??30000);
+    const stop=()=>controller.abort();options.signal?.addEventListener('abort',stop);
+    let response:Response;
+    try{response=await fetch(`${apiOrigin}/api${path}`,{method,headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),signal:controller.signal});}
+    catch(e){
+      const code=options.signal?.aborted?'CANCELLED':controller.signal.aborted?'TIMEOUT':'NETWORK_ERROR',error=new Error(apiErrors[code]) as Error&{code?:string};error.code=code;throw error;
+    }finally{clearTimeout(timer);options.signal?.removeEventListener('abort',stop);}
     const result=await response.json().catch(()=>({}));
     if(!response.ok){const code=result.error??'REQUEST_FAILED',error=new Error(apiErrors[code]??code) as Error&{code?:string};error.code=code;throw error;}
     return result;

@@ -1,10 +1,11 @@
 import React,{useState,useRef,useEffect} from 'react';
 import {tone,toneText,barColor} from './theme';
-import {ScrollView,View,useWindowDimensions} from 'react-native';
+import {View,useWindowDimensions} from 'react-native';
 import {useRouter} from 'expo-router';
 import {ArrowDownLeft,ArrowUpRight,ChevronRight,Plus,Receipt,Check,Download,Search,Link as LinkIcon,Clock,TriangleAlert} from 'lucide-react-native';
 import {money,thaiDate,rangeFor,summarize,parseMoney,transactionInput,transactionsCsv,type Summary,type Slip,type Transaction} from '@expense/core';
 import {useData,newId} from './state';
+import {BankIcon,bankOf,withBankIcons} from './bank-icon';
 import {T,Card,Button,Field,Choices,Badge,Hero,C,s} from './ui';
 import {GrowingBar,MotionPressable,useMotion} from './motion';
 import {MobileDashboard} from './mobile-dashboard';
@@ -23,7 +24,7 @@ function Bars({date,period='week'}:{date:string;period?:'day'|'week'|'month'}) {
 }
 function TransactionRow({item,onPress}:{item:Transaction;onPress?:()=>void}) {
   const {data}=useData(),{width}=useWindowDimensions(),compact=width<1000;const account=data.accounts.find(a=>a.id===item.account_id),category=data.categories.find(c=>c.id===item.category_id);const toAccount=data.accounts.find(a=>a.id===item.to_account_id);const color=item.kind==='income'?C.green:C.red;const Icon=item.kind==='income'?ArrowDownLeft:ArrowUpRight;
-  return <MotionPressable accessibilityRole="button" onPress={onPress} style={{paddingVertical:14,paddingHorizontal:compact?12:0,marginTop:compact?8:0,backgroundColor:tone('white'),borderRadius:compact?18:0,borderBottomWidth:compact?0:1,borderColor:tone('#f0f3f8'),flexDirection:'row',gap:compact?10:12,alignItems:'center'}}><View style={{padding:compact?9:11,borderRadius:14,backgroundColor:`${category?.color??color}18`}}><Icon size={18} color={category?.color??color}/></View><View style={{flex:1,minWidth:0,gap:3}}><T style={[s.bold,{fontSize:13}]} numberOfLines={1}>{item.note||item.counterparty||kindName[item.kind]}</T><T style={[s.muted,{fontSize:10}]} numberOfLines={compact?1:undefined}>{account?.name}{toAccount?` → ${toAccount.name}`:''} · {category?.name??'ยังไม่จัดหมวด'} · {dateLabel(item.occurred_at)}</T></View><View style={{alignItems:'flex-end',gap:3}}><T style={{fontFamily:'NotoLatinBold',color,fontSize:compact?13:14}}>{item.kind==='income'?'+':'-'}{money(item.amount_satang)}</T><T style={[s.muted,{fontSize:10}]}>{item.source==='manual'?'บันทึกเอง':'จากสลิป'}</T></View></MotionPressable>;
+  return <MotionPressable accessibilityRole="button" onPress={onPress} style={{paddingVertical:14,paddingHorizontal:compact?12:0,marginTop:compact?8:0,backgroundColor:tone('white'),borderRadius:compact?18:0,borderBottomWidth:compact?0:1,borderColor:tone('#f0f3f8'),flexDirection:'row',gap:compact?10:12,alignItems:'center'}}><View style={{padding:compact?9:11,borderRadius:14,backgroundColor:`${category?.color??color}18`}}><Icon size={18} color={category?.color??color}/></View><View style={{flex:1,minWidth:0,gap:3}}><T style={[s.bold,{fontSize:13}]} numberOfLines={1}>{item.note||item.counterparty||kindName[item.kind]}</T><View style={{flexDirection:'row',alignItems:'center',gap:4,minWidth:0}}><BankIcon code={bankOf(account,data.sources)} size={13}/><T style={[s.muted,{fontSize:10,flexShrink:1}]} numberOfLines={compact?1:undefined}>{account?.name}{toAccount?` → ${toAccount.name}`:''} · {category?.name??'ยังไม่จัดหมวด'} · {dateLabel(item.occurred_at)}</T></View></View><View style={{alignItems:'flex-end',gap:3}}><T style={{fontFamily:'NotoLatinBold',color,fontSize:compact?13:14}}>{item.kind==='income'?'+':'-'}{money(item.amount_satang)}</T><T style={[s.muted,{fontSize:10}]}>{item.source==='manual'?'บันทึกเอง':'จากสลิป'}</T></View></MotionPressable>;
 }
 export function Dashboard(){const {data}=useData(),router=useRouter(),{width}=useWindowDimensions(),wide=width>=1000,today=thaiDate(),r=rangeFor(today,'day'),summary=summarize(data,r.start,r.end),monthRange=rangeFor(today,'month'),month=summarize(data,monthRange.start,monthRange.end);const pending=data.slips.filter(v=>!['linked','duplicate'].includes(v.status)).length;
   if(!wide)return <MobileDashboard/>;
@@ -34,9 +35,9 @@ export function Dashboard(){const {data}=useData(),router=useRouter(),{width}=us
     <Card style={{gap:8}}><View style={s.between}><T style={s.bold}>รายการล่าสุด</T><Button secondary onPress={()=>router.push('/transactions')}>ดูทั้งหมด</Button></View>{data.transactions.slice().sort((a,b)=>b.occurred_at.localeCompare(a.occurred_at)).slice(0,5).map(t=><TransactionRow key={t.id} item={t} onPress={()=>router.push({pathname:'/record',params:{id:t.id}})}/>)}{!data.transactions.length&&<Empty text="เริ่มจากบันทึกรายการแรกของคุณ"/>}</Card>
   </View>;
 }
-// One labelled row of chips that scrolls sideways instead of wrapping into a pile.
+// A labelled row of chips (Choices scrolls sideways).
 function FilterRow({label,items,value,onChange}:{label:string;items:{id:string;name:string}[];value:string;onChange:(id:string)=>void}){
-  return <View style={{gap:6}}><T style={s.label}>{label}</T><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{paddingRight:4}}><Choices value={value} onChange={onChange} items={items}/></ScrollView></View>;
+  return <View style={{gap:6}}><T style={s.label}>{label}</T><Choices value={value} onChange={onChange} items={items}/></View>;
 }
 export function Transactions(){const {data}=useData(),router=useRouter(),[search,setSearch]=useState(''),[account,setAccount]=useState('all'),[category,setCategory]=useState('all'),firstDay=thaiDate().slice(0,7)+'-01',[start,setStart]=useState(firstDay),[end,setEnd]=useState(thaiDate()),[page,setPage]=useState(0);
   const {width}=useWindowDimensions(),compact=width<1000,[filtersExpanded,setFiltersExpanded]=useState(false);
@@ -46,7 +47,7 @@ export function Transactions(){const {data}=useData(),router=useRouter(),[search
   const clear=()=>{setAccount('all');setCategory('all');setStart(firstDay);setEnd(thaiDate());};
   const filters=<View style={{gap:14,paddingTop:compact?2:0}}>
     <View style={{flexDirection:'row',gap:10}}><View style={{flex:1}}><DateField label="ตั้งแต่วันที่" value={start} onChange={setStart}/></View><View style={{flex:1}}><DateField label="ถึงวันที่" value={end} onChange={setEnd}/></View></View>
-    <FilterRow label="บัญชี" value={account} onChange={setAccount} items={[{id:'all',name:'ทุกบัญชี'},...data.accounts]}/>
+    <FilterRow label="บัญชี" value={account} onChange={setAccount} items={[{id:'all',name:'ทุกบัญชี'},...withBankIcons(data.accounts,data.sources)]}/>
     <FilterRow label="หมวด" value={category} onChange={setCategory} items={[{id:'all',name:'ทุกหมวด'},...data.categories,{id:'none',name:'ยังไม่จัดหมวด'}]}/>
     {active>0&&<MotionPressable accessibilityRole="button" onPress={clear} style={{alignSelf:'flex-start',paddingVertical:6}}><T style={{fontSize:12,color:C.primary}}>ล้างตัวกรอง</T></MotionPressable>}
   </View>;

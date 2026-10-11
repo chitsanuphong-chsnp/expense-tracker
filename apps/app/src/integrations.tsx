@@ -1,7 +1,7 @@
 import {QrDetails} from './qr-details';
 import {tone,toneText,type ThemeMode} from './theme';
 import {useTheme} from './theme-provider';
-import React,{useState,useEffect} from 'react';
+import React,{useState,useEffect,useRef} from 'react';
 import {View,Modal,ScrollView,Image,Pressable,Switch} from 'react-native';
 import {useRouter} from 'expo-router';
 import {Receipt,ChevronRight,Clock,Check,TriangleAlert,Link,X,Settings as SettingsIcon,Palette,UserRound,PiggyBank,IdCard,MessageCircle,FolderOpen,Landmark,Tags,ListChecks,RotateCcw} from 'lucide-react-native';
@@ -11,6 +11,7 @@ import {DateField} from './calendar';
 import {useSuccess} from './success';
 import {ImportProgress} from './import-progress';
 import {useData,newId} from './state';
+import {BankIcon,BankName,bankOf,withBankIcons} from './bank-icon';
 import {T,Card,Button,ActionRow,Field,Choices,Badge,C,s} from './ui';
 import {Loading,MotionPressable,useMotion} from './motion';
 import {ModalCompanion} from './modal-companion';
@@ -30,8 +31,8 @@ export function Slips(){const {reduced}=useMotion(),success=useSuccess();const [
     else {await state.call(deleteTarget==='all'?'/slips':`/slips/${deleteTarget.id}`,'DELETE');await state.refresh();}
     setSelected(null);setDeleteTarget(null);success(deleteTarget==='all'?'ลบสลิปทั้งหมดแล้ว':'ลบสลิปแล้ว');
   }catch(e){setMessage((e as any)?.code==='IMPORT_RUNNING'?'กำลังนำเข้าสลิป รอให้เสร็จแล้วลองลบอีกครั้ง':'ลบไม่สำเร็จ ตรวจว่ารัน 004_delete_slips.sql แล้ว');}finally{setBusy(false);}}
-  return <View style={s.section}><AddSlips/><Card style={{gap:14}}><View style={s.between}><View><T style={s.bold}>กล่องสลิป</T><T style={s.muted}>QR ที่ไม่มีข้อมูลยอด ต้องเติมรายละเอียดก่อนรวมยอด</T></View></View><Button secondary disabled={busy||!state.data.slips.some(v=>!v.transaction_id)} onPress={()=>setDeleteTarget('all')}>ลบสลิปที่ยังไม่บันทึกทั้งหมด</Button>{!!message&&!selected&&<T accessibilityRole="alert" style={s.muted}>{message}</T>}<Choices value={filter} onChange={setFilter} items={[{id:'pending',name:'รอข้อมูล'},{id:'all',name:'ทั้งหมด'},{id:'linked',name:'บันทึกแล้ว'},{id:'duplicate',name:'ซ้ำ'}]}/><Choices value={bank} onChange={setBank} items={[{id:'all',name:'ทุกแหล่ง'},...sourceCodes.map(id=>({id,name:names[id]}))]}/></Card>
-    {items.map(v=><MotionPressable accessibilityRole="button" key={v.id} onPress={()=>void open(v)}><Card style={{gap:12}}><View style={s.between}><View style={s.row}><View style={{backgroundColor:tone('#eef0fc'),padding:13,borderRadius:15}}><Receipt color={C.primary} size={22}/></View><View style={{flexShrink:1}}><T style={s.bold}>{names[v.source_code]}</T><T style={s.muted}>อัปโหลด {new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'medium',timeStyle:'short'}).format(new Date(v.uploaded_at))}</T></View></View><ChevronRight color={C.muted} size={18}/></View><View style={s.between}><T style={[s.muted,{flex:1}]} numberOfLines={1}>{v.name??'สลิปธนาคาร'}</T><Badge text={statuses[v.status]} color={v.status==='linked'?C.green:v.status==='duplicate'?C.muted:toneText('#b18c4a')}/></View></Card></MotionPressable>)}{!items.length&&<Card><T style={s.muted}>ไม่มีสลิปในตัวกรองนี้</T></Card>}
+  return <View style={s.section}><AddSlips/><Card style={{gap:14}}><View style={s.between}><View><T style={s.bold}>กล่องสลิป</T><T style={s.muted}>QR ที่ไม่มีข้อมูลยอด ต้องเติมรายละเอียดก่อนรวมยอด</T></View></View><Button secondary disabled={busy||!state.data.slips.some(v=>!v.transaction_id)} onPress={()=>setDeleteTarget('all')}>ลบสลิปที่ยังไม่บันทึกทั้งหมด</Button>{!!message&&!selected&&<T accessibilityRole="alert" style={s.muted}>{message}</T>}<Choices value={filter} onChange={setFilter} items={[{id:'pending',name:'รอข้อมูล'},{id:'all',name:'ทั้งหมด'},{id:'linked',name:'บันทึกแล้ว'},{id:'duplicate',name:'ซ้ำ'}]}/><Choices value={bank} onChange={setBank} items={[{id:'all',name:'ทุกแหล่ง'},...sourceCodes.map(id=>({id,name:names[id],icon:<BankIcon code={id}/>}))]}/></Card>
+    {items.map(v=><MotionPressable accessibilityRole="button" key={v.id} onPress={()=>void open(v)}><Card style={{gap:12}}><View style={s.between}><View style={s.row}><View style={{backgroundColor:tone('#eef0fc'),padding:13,borderRadius:15}}><Receipt color={C.primary} size={22}/></View><View style={{flexShrink:1}}><BankName code={v.source_code}><T style={s.bold}>{names[v.source_code]}</T></BankName><T style={s.muted}>อัปโหลด {new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'medium',timeStyle:'short'}).format(new Date(v.uploaded_at))}</T></View></View><ChevronRight color={C.muted} size={18}/></View><View style={s.between}><T style={[s.muted,{flex:1}]} numberOfLines={1}>{v.name??'สลิปธนาคาร'}</T><Badge text={statuses[v.status]} color={v.status==='linked'?C.green:v.status==='duplicate'?C.muted:toneText('#b18c4a')}/></View></Card></MotionPressable>)}{!items.length&&<Card><T style={s.muted}>ไม่มีสลิปในตัวกรองนี้</T></Card>}
     <Modal visible={!!selected} transparent animationType={reduced?'none':'fade'} onRequestClose={()=>setSelected(null)}><View style={{flex:1,backgroundColor:tone('#24334f66'),justifyContent:'center',padding:20}}><ScrollView contentContainerStyle={{maxWidth:650,width:'100%',alignSelf:'center',paddingVertical:20}}><Card enterDelay={0} style={{gap:17}}>{selected&&<><ModalCompanion title={`สลิป ${names[selected.source_code]}`} pose={selected.status==='linked'?'celebrate':['needs_details','qr_unreadable','failed','duplicate'].includes(selected.status)?'thinking':'reading'} action={<MotionPressable accessibilityRole="button" accessibilityLabel="ปิดรายละเอียดสลิป" onPress={()=>setSelected(null)} style={{width:44,height:44,alignItems:'center',justifyContent:'center'}}><X size={18} color={C.muted}/></MotionPressable>}/><Badge text={statuses[selected.status]}/>{imageLoading&&<Loading label="กำลังโหลดภาพสลิป"/>}{!!image&&<Image source={{uri:image}} style={{width:'100%',height:420,borderRadius:14}} resizeMode="contain" accessibilityLabel="ภาพสลิปธนาคาร"/>}{!!message&&<T style={s.muted}>{message}</T>}{selected.error_code&&<T style={s.muted}>สถานะ: {selected.error_code}</T>}<QrDetails slip={selected}/><View><T style={s.label}>ข้อความจาก QR</T><T selectable style={{fontSize:11,color:toneText('#6d7890')}}>{selected.qr_payload??'ยังอ่าน QR ไม่ได้'}</T></View>
       {!selected.transaction_id&&<Button secondary disabled={busy} onPress={()=>setDeleteTarget(selected)}>ลบสลิปนี้</Button>}{selected.status==='duplicate'&&<T>สลิปนี้ซ้ำกับต้นฉบับ ไม่เพิ่มยอดอีกครั้ง</T>}
       {selected.transaction_id?<ActionRow testID="slip-detail-actions"><Button secondary onPress={()=>setSelected(null)}>ปิด</Button><Button onPress={()=>{setSelected(null);router.push({pathname:'/record',params:{id:selected.transaction_id!}});}}>ดูรายการที่บันทึก</Button></ActionRow>:selected.status!=='duplicate'?<><ActionRow testID="slip-detail-actions">{!['queued','processing'].includes(selected.status)&&<Button secondary disabled={busy} onPress={()=>void retry(selected)}>ลองอ่าน QR ใหม่</Button>}<Button disabled={busy} onPress={()=>{setSelected(null);router.push({pathname:'/record',params:{slip:selected.id}});}}>{selected.ocr_details&&!selected.ocr_details.error?'ตรวจข้อมูลและบันทึก':'กรอกยอดและรายละเอียด'}</Button></ActionRow><T style={s.label}>หรือเชื่อมกับรายการที่บันทึกไว้แล้ว</T><Choices value={linkId} onChange={setLinkId} items={state.data.transactions.filter(t=>!state.data.slips.some(s=>s.transaction_id===t.id)).sort((a,b)=>b.occurred_at.localeCompare(a.occurred_at)).map(t=>({id:t.id,name:`${t.note||t.counterparty||'รายการ'} · ${money(t.amount_satang)}`}))}/><ActionRow testID="slip-link-actions"><Button secondary disabled={busy} onPress={()=>setSelected(null)}>ปิด</Button><Button loading={busy} disabled={!linkId} onPress={()=>{setBusy(true);state.link(selected.id,linkId!).then(()=>{setSelected(null);success('เชื่อมรายการแล้ว');}).catch(e=>setMessage(e.message)).finally(()=>setBusy(false));}}>เชื่อมรายการที่เลือก</Button></ActionRow></>:<Button secondary onPress={()=>setSelected(null)}>ปิด</Button>}
@@ -42,22 +43,35 @@ export function Slips(){const {reduced}=useMotion(),success=useSuccess();const [
 // Fetch slips from Drive for any dates, or upload a photo: both read QR + OCR now. Night scans recheck; duplicates are not added twice.
 function AddSlips(){
   const state=useData(),router=useRouter(),success=useSuccess(),today=thaiDate();
-  const [importSince,setImportSince]=useState<string|null>(null);
+  const [importSince,setImportSince]=useState<string|null>(null),importAbort=useRef<AbortController|null>(null);
   const [from,setFrom]=useState(today),[to,setTo]=useState(today),[bank,setBank]=useState('all'),[uploadBank,setUploadBank]=useState<string>('kplus'),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
   async function run(fn:()=>Promise<void>){setBusy(true);setMessage('');try{await fn();}catch(e){setMessage(e instanceof Error?e.message:'ทำรายการไม่สำเร็จ');}finally{setBusy(false);}}
   const fetchSlips=()=>run(async()=>{
     if(state.demo)throw new Error('โหมดตัวอย่างไม่เชื่อม Drive จริง');
     if(from>to)throw new Error('วันเริ่มต้องไม่เกินวันสิ้นสุด');
     // A little before now, so jobs queued by this request count even if the phone clock runs slightly ahead.
-    setImportSince(new Date(Date.now()-15000).toISOString());
+    const since=new Date(Date.now()-15000).toISOString(),controller=new AbortController();
+    importAbort.current=controller;setImportSince(since);
     try{
-      const r=await drainImport(state,await state.call('/sync','POST',{from,to,source:bank==='all'?null:bank}),()=>{});
+      // Each call works up to ~60 s on the server; wait up to 2 min so a busy round is not cut off.
+      const options={timeoutMs:120000,signal:controller.signal};
+      const r=await drainImport(state,await state.call('/sync','POST',{from,to,source:bank==='all'?null:bank},options),options);
+      const found=(await state.call(`/sync/status?since=${encodeURIComponent(since)}`).catch(()=>null))?.slips;
       await state.refresh();
       if(r.busy)setMessage('ระบบกำลังทำงานรอบตั้งเวลาอยู่ สลิปจะขึ้นเมื่อรอบนั้นเสร็จ');
       else if(r.pending)setMessage(`ดึงแล้วบางส่วน เหลือ ${r.pending} งาน กดอีกครั้งได้`);
-      else success('ดึงสลิปเสร็จแล้ว');
-    }finally{setImportSince(null);}
+      else if(found===0)setMessage(`ไม่พบสลิปใหม่ใน Drive ช่วง ${from===to?from:`${from} ถึง ${to}`} · โฟลเดอร์วันนั้นยังไม่มีรูป (มือถืออัปโหลด 23:30) หรือดึงไปแล้ว`);
+      else success(found?`ดึงสลิปเสร็จแล้ว · ${found} ใบ`:'ดึงสลิปเสร็จแล้ว');
+    }catch(e){
+      if((e as any)?.code!=='CANCELLED')throw e;
+    }finally{importAbort.current=null;setImportSince(null);}
   });
+  // Stops waiting now and drops the queued scan/QR jobs; slips already imported stay.
+  async function cancelImport(){
+    importAbort.current?.abort();
+    try{const r=await state.call('/sync/cancel','POST');await state.refresh();setMessage(`ยกเลิกแล้ว · สลิปที่ดึงมาแล้วยังอยู่${r.cancelled?` · ยกเลิก ${r.cancelled} งานที่ค้าง`:''}`);}
+    catch(e){setMessage(e instanceof Error?e.message:'ยกเลิกไม่สำเร็จ');}
+  }
   const upload=()=>run(async()=>{
     if(state.demo)throw new Error('โหมดตัวอย่างอัปโหลดสลิปจริงไม่ได้');
     const picked=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],base64:true,quality:0.8});
@@ -74,18 +88,18 @@ function AddSlips(){
   return <Card style={{gap:14}}>
     <T style={s.bold}>ดึงสลิปจาก Drive</T>
     <View style={[s.row,{gap:10}]}><View style={{flex:1}}><DateField label="ตั้งแต่" value={from} onChange={setFrom}/></View><View style={{flex:1}}><DateField label="ถึง" value={to} onChange={setTo}/></View></View>
-    <Choices value={bank} onChange={setBank} items={[{id:'all',name:'ทุกธนาคาร'},...sourceCodes.map(id=>({id,name:names[id]}))]}/>
+    <Choices value={bank} onChange={setBank} items={[{id:'all',name:'ทุกธนาคาร'},...sourceCodes.map(id=>({id,name:names[id],icon:<BankIcon code={id}/>}))]}/>
     <Button loading={busy} onPress={()=>void fetchSlips()}>ดึงสลิปตอนนี้</Button>
-    {importSince&&<ImportProgress since={importSince}/>}
+    {importSince&&<ImportProgress since={importSince} onCancel={()=>void cancelImport()}/>}
     <T style={s.bold}>หรืออัปโหลดรูปสลิปเอง</T>
-    <Choices value={uploadBank} onChange={v=>setUploadBank(v??'kplus')} items={sourceCodes.map(id=>({id,name:names[id]}))}/>
+    <Choices value={uploadBank} onChange={v=>setUploadBank(v??'kplus')} items={sourceCodes.map(id=>({id,name:names[id],icon:<BankIcon code={id}/>}))}/>
     <Button secondary disabled={busy} onPress={()=>void upload()}>เลือกรูปสลิป</Button>
     {!!message&&<T accessibilityRole="alert" style={s.muted}>{message}</T>}
   </Card>;
 }
 function SourceForm({code}:{code:typeof sourceCodes[number]}){const success=useSuccess(),state=useData(),source=state.data.sources.find(s=>s.source_code===code),[folder,setFolder]=useState(source?.folder_id??''),[account,setAccount]=useState<string|null>(source?.account_id??null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   async function save(){if(!/^[A-Za-z0-9_-]{10,200}$/.test(folder.trim())){setMessage('ใส่ Folder ID จาก URL ของโฟลเดอร์ธนาคาร');return;}setBusy(true);try{if(state.demo){state.updateLocal(d=>({...d,sources:[...d.sources.filter(s=>s.source_code!==code),{id:newId(),source_code:code,folder_id:folder.trim(),account_id:account,last_scan_at:null,last_scan_status:null,scan_complete:false}]}));setMessage('บันทึกตัวอย่างในเครื่อง ยังไม่ได้เชื่อม Drive');}else{await state.call(`/sources/${code}`,'PUT',{folder_id:folder.trim(),account_id:account});await state.refresh();setMessage('');success(`บันทึก ${names[code]} แล้ว`);}}catch(e){setMessage(e instanceof Error?e.message:'บันทึกไม่สำเร็จ');}finally{setBusy(false);}}
-  return <Card style={{gap:12}}><View style={s.between}><T style={s.bold}>{names[code]}</T><Badge text={source?.last_scan_status==='success'?'ตรวจสำเร็จ':source?.last_scan_status==='failed'?'ตรวจไม่สำเร็จ':source?'รอตรวจ':'ยังไม่เชื่อม'} color={source?.last_scan_status==='failed'?C.red:C.primary}/></View><Field label="Folder ID ของธนาคาร (ไม่ใช่โฟลเดอร์วันที่)" value={folder} onChangeText={setFolder} autoCapitalize="none"/><T style={s.label}>บัญชีเงินจริงที่เกี่ยวข้อง</T><Choices value={account} onChange={setAccount} items={state.data.accounts.filter(a=>a.kind==='bank')}/><T style={s.muted}>ใช้เป็นบัญชีต้นทางเริ่มต้นของสลิปจากแหล่งนี้</T><Button secondary loading={busy} onPress={()=>void save()}>บันทึก {names[code]}</Button>{!!message&&<T style={s.muted}>{message}</T>}{source?.last_scan_at&&<T style={s.muted}>ตรวจล่าสุด {new Date(source.last_scan_at).toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</T>}</Card>;
+  return <Card style={{gap:12}}><View style={s.between}><BankName code={code} size={22}><T style={s.bold}>{names[code]}</T></BankName><Badge text={source?.last_scan_status==='success'?'ตรวจสำเร็จ':source?.last_scan_status==='failed'?'ตรวจไม่สำเร็จ':source?'รอตรวจ':'ยังไม่เชื่อม'} color={source?.last_scan_status==='failed'?C.red:C.primary}/></View><Field label="Folder ID ของธนาคาร (ไม่ใช่โฟลเดอร์วันที่)" value={folder} onChangeText={setFolder} autoCapitalize="none"/><T style={s.label}>บัญชีเงินจริงที่เกี่ยวข้อง</T><Choices value={account} onChange={setAccount} items={withBankIcons(state.data.accounts.filter(a=>a.kind==='bank'),state.data.sources)}/><T style={s.muted}>ใช้เป็นบัญชีต้นทางเริ่มต้นของสลิปจากแหล่งนี้</T><Button secondary loading={busy} onPress={()=>void save()}>บันทึก {names[code]}</Button>{!!message&&<T style={s.muted}>{message}</T>}{source?.last_scan_at&&<T style={s.muted}>ตรวจล่าสุด {new Date(source.last_scan_at).toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</T>}</Card>;
 }
 function AccountRow({id}:{id:string}){
   const state=useData(),success=useSuccess(),account=state.data.accounts.find(a=>a.id===id)!,saved=(account.numbers??[]).join(', ');
@@ -104,7 +118,7 @@ function AccountRow({id}:{id:string}){
     else await state.call(`/accounts/${id}`,'DELETE');
   },'ลบบัญชีแล้ว');
   return <View style={{gap:8,borderTopWidth:1,borderColor:tone('#eef1f6'),paddingTop:10}}>
-    <View style={s.between}><T style={[s.bold,{flex:1}]}>{account.name}</T><Button secondary onPress={()=>setOpen(!open)}>{open?'ปิด':'แก้ไข'}</Button></View>
+    <View style={s.between}><View style={{flex:1}}><BankName code={bankOf(account,state.data.sources)} size={22}><T style={s.bold}>{account.name}</T></BankName></View><Button secondary onPress={()=>setOpen(!open)}>{open?'ปิด':'แก้ไข'}</Button></View>
     {open&&<><Field label="ชื่อบัญชี" value={name} onChangeText={setName}/>{account.kind==='bank'&&<Field label="เลขบัญชี/พร้อมเพย์บนสลิป (คั่นด้วยจุลภาค)" value={numbers} onChangeText={setNumbers} keyboardType="numbers-and-punctuation"/>}
       <ActionRow><Button secondary disabled={busy} onPress={()=>void remove()}>ลบบัญชี</Button><Button loading={busy} onPress={()=>void save()}>บันทึก</Button></ActionRow></>}
     {!!note&&<T style={s.muted}>{note}</T>}
@@ -123,9 +137,9 @@ function CategoryRow({id}:{id:string}){
   </View>;
 }
 // Keeps calling the API while import/OCR jobs remain (about 60 s per call, shares the scheduler lease).
-async function drainImport(state:ReturnType<typeof useData>,first:any,progress:(m:string)=>void){
+async function drainImport(state:ReturnType<typeof useData>,first:any,options:{timeoutMs?:number;signal?:AbortSignal}){
   let r=first,rounds=0;
-  while(!r.busy&&r.pending>0&&r.processed>0&&rounds<10){progress(`กำลังทำงาน · เหลือ ${r.pending} งาน`);r={...first,...await state.call('/sync/run','POST')};rounds++;}
+  while(!r.busy&&r.pending>0&&r.processed>0&&rounds<10){r={...first,...await state.call('/sync/run','POST',undefined,options)};rounds++;}
   return r;
 }
 const settingTopics=[

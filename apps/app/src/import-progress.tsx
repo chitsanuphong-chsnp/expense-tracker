@@ -3,13 +3,13 @@ import {Animated,Easing,View} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {T,C,s} from './ui';
 import {tone} from './theme';
-import {useMotion} from './motion';
+import {MotionPressable,useMotion} from './motion';
 import {useData} from './state';
 
 type Progress={pending:number;done:number;slips:number};
 // Shown while "ดึงสลิปตอนนี้" runs. Polls the API every 2.5 s for real job counts: the bar fills by finished
 // import jobs (Drive scans + QR/OCR per slip), a light sweep shows it is still working, and the timer counts up.
-export function ImportProgress({since}:{since:string}){
+export function ImportProgress({since,onCancel}:{since:string;onCancel:()=>void}){
   const state=useData(),{reduced}=useMotion();
   const [progress,setProgress]=useState<Progress|null>(null),[seconds,setSeconds]=useState(0),[width,setWidth]=useState(0);
   const fill=useRef(new Animated.Value(0)).current,sweep=useRef(new Animated.Value(0)).current;
@@ -40,6 +40,9 @@ export function ImportProgress({since}:{since:string}){
         <LinearGradient colors={['rgba(255,255,255,0)','rgba(255,255,255,0.55)','rgba(255,255,255,0)']} start={{x:0,y:0}} end={{x:1,y:0}} style={{flex:1}}/>
       </Animated.View>}
     </View>
-    <T style={{fontSize:11,color:C.muted}}>{progress?`พบสลิปใหม่ ${progress.slips} ใบ · เสร็จ ${progress.done} จาก ${total} งาน`:'เริ่มทำงาน…'} · อยู่หน้านี้จนเสร็จ</T>
+    <View style={[s.between,{gap:10}]}>
+      <T style={{fontSize:11,color:C.muted,flex:1}}>{progress?`พบสลิปใหม่ ${progress.slips} ใบ · เสร็จ ${progress.done} จาก ${total} งาน`:'เริ่มทำงาน…'}</T>
+      <MotionPressable accessibilityRole="button" accessibilityLabel="ยกเลิกการดึงสลิป" onPress={onCancel} style={{paddingHorizontal:14,minHeight:34,borderRadius:10,borderWidth:1,borderColor:tone('#d9def0'),backgroundColor:tone('#ffffff'),justifyContent:'center'}}><T style={{fontSize:12,color:C.red,fontFamily:'NotoThaiBold'}}>ยกเลิก</T></MotionPressable>
+    </View>
   </View>;
 }

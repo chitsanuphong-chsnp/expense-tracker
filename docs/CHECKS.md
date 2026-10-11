@@ -129,6 +129,14 @@ Patched image processing to sharp 0.35.5 and tests to Vitest 5.0.3. The installe
 
 - LINE Flex redesign: compact gradient header (linearGradient box background with solid fallback) with title, amount, item count and a 60 px mascot; accounts with colour dots (no categories or share bars, since most spending is uncategorised); tinted status box (pending, OCR draft, own transfers); secondary/primary buttons. In-app preview renders the same payload (gradient, radius, padding, widths) on a light bubble in both themes. Payload under 30 KB (test).
 
+## 11 Oct 2026 (evening): bank icons, one-line chips, import cancel
+- Bank logos supplied in `apps/app/assets/banks/` cut to equal 96 px circles (`*-icon.png`, 3–5 KB each; Krungthai's white margin trimmed, K+ cropped round) and shown with a hairline ring before bank/account names: chips, slip cards, Drive sources, settings accounts, transaction rows. Checked on home, transactions, record and slips screens.
+- `Choices` chips stay on one line and scroll sideways everywhere (segmented bars unchanged).
+- Import calls wait up to 2 min (were cut at 30 s while the server works ~60 s per round); network/timeout errors get Thai messages.
+- Cancel button on the progress card: aborts waiting and calls `POST /api/sync/cancel` (drops queued scan/QR jobs). Checked with a mocked API: "ยกเลิกแล้ว · สลิปที่ดึงมาแล้วยังอยู่ · ยกเลิก 3 งานที่ค้าง".
+- When an import finds no new slip the app says so (folder not uploaded yet at 23:30, or already imported) instead of a plain success.
+- 104 tests pass; typecheck and build pass.
+
 ## 11 Oct 2026 (later): transfers count as spending, manual import sends no LINE, success modal, import progress
 - Spending ("ใช้ไป") now includes own-account transfers (counted on the source account) in the app, reports and Flex; the "ไม่รวมโอนระหว่างบัญชี" captions are gone; OCR drafts that look like own transfers join the draft total.
 - Transaction rows all look the same (red, "-"); a transfer row shows "ต้นทาง → ปลายทาง". The type filter is removed; filters are tidy rows (dates, then account and category chips that scroll sideways) with an active count and a clear button.

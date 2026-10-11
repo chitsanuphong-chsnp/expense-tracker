@@ -1,13 +1,13 @@
 import {it,expect,vi,beforeEach,afterEach} from 'vitest';
-const {getUser,tick,enqueueScan,pendingImportJobs,importProgress}=vi.hoisted(()=>({getUser:vi.fn(),tick:vi.fn(),enqueueScan:vi.fn(),pendingImportJobs:vi.fn(),importProgress:vi.fn()}));
+const {getUser,tick,enqueueScan,pendingImportJobs,importProgress,cancelImport}=vi.hoisted(()=>({getUser:vi.fn(),tick:vi.fn(),enqueueScan:vi.fn(),pendingImportJobs:vi.fn(),importProgress:vi.fn(),cancelImport:vi.fn()}));
 const sources=[{id:'source-1',source_code:'ttb'},{id:'source-2',source_code:'kplus'}];
 vi.mock('../apps/api/src/db.ts',async importOriginal=>({...await importOriginal<typeof import('../apps/api/src/db.ts')>(),configured:()=>true,
   admin:()=>({auth:{getUser},from:()=>({select:()=>({eq:async()=>({data:sources,error:null})})})})}));
-vi.mock('../apps/api/src/worker.ts',()=>({tick,enqueueScan,pendingImportJobs,importProgress}));
+vi.mock('../apps/api/src/worker.ts',()=>({tick,enqueueScan,pendingImportJobs,importProgress,cancelImport}));
 import {createApp} from '../apps/api/src/app';
 const user=(id:string)=>({id,email:'owner@example.com',email_confirmed_at:'2026-10-01T00:00:00Z',phone:'',is_anonymous:false,identities:[{provider:'email'}],user_metadata:{}});
 const post=(path:string,body?:unknown)=>createApp().request(path,{method:'POST',headers:{Authorization:'Bearer token','Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
-beforeEach(()=>{vi.stubEnv('DRIVE_OWNER_ID','owner-a');for(const f of [getUser,tick,enqueueScan,pendingImportJobs,importProgress])f.mockReset();pendingImportJobs.mockResolvedValue(3);});
+beforeEach(()=>{vi.stubEnv('DRIVE_OWNER_ID','owner-a');for(const f of [getUser,tick,enqueueScan,pendingImportJobs,importProgress,cancelImport])f.mockReset();pendingImportJobs.mockResolvedValue(3);});
 afterEach(()=>vi.unstubAllEnvs());
 it('starts the import immediately with a short budget under the shared tick lease',async()=>{
   getUser.mockResolvedValue({data:{user:user('owner-a')},error:null});tick.mockResolvedValue({processed:4});
@@ -39,4 +39,9 @@ it('reports import progress for the progress bar and rejects a bad start time',a
   const r=await get('?since=2026-10-11T03:00:00.000Z');expect(await r.json()).toEqual({pending:3,done:5,slips:4});
   expect(importProgress).toHaveBeenCalledWith('owner-a','2026-10-11T03:00:00.000Z');
   expect((await get('?since=yesterday')).status).toBe(400);
+});
+it('cancels the caller\'s queued import jobs',async()=>{
+  getUser.mockResolvedValue({data:{user:user('owner-a')},error:null});cancelImport.mockResolvedValue(4);
+  expect(await (await post('/api/sync/cancel')).json()).toEqual({cancelled:4});
+  expect(cancelImport).toHaveBeenCalledWith('owner-a');
 });

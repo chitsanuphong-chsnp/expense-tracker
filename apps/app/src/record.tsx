@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useRouter,useLocalSearchParams} from 'expo-router';
 import {parseMoney,thaiDate,transactionInput,likelyOwnTransfer,accountForMask,type Transaction} from '@expense/core';
 import {useData,newId} from './state';
+import {withBankIcons} from './bank-icon';
 import {useSuccess} from './success';
 import {T,Card,Button,ActionRow,Field,Choices,Badge,C,s} from './ui';
 import {useMotion} from './motion';
@@ -67,8 +68,8 @@ function RecordForm(){
       {slip&&<View style={{width:split?'42%':'100%',gap:12}}><SlipImage id={slip.id} height={split?420:250}/><T style={s.muted}>ระบุวันที่ทำรายการจริง วันที่อัปโหลดอาจเป็นคนละวัน</T><QrDetails slip={slip}/>{!!slip.qr_payload&&<T selectable numberOfLines={3} style={{fontSize:10,color:C.muted}}>QR: {slip.qr_payload}</T>}</View>}
       <View style={{flex:1,minWidth:0,gap:18}}>
         <Field label="จำนวนเงิน (บาท)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.00" style={{fontFamily:'NotoLatinBold',fontSize:30,paddingVertical:18}}/>
-        <View><View style={s.between}><T style={s.label}>บัญชี{kind==='transfer'?'ต้นทาง':''}</T>{remembered&&<T style={{fontSize:10,color:C.muted}}>เลือกบัญชีล่าสุดให้แล้ว</T>}</View><Choices items={state.data.accounts} value={account} onChange={value=>{accountTouched.current=true;setRemembered(false);setAccount(value);if(value===toAccount)setToAccount('');}}/></View>
-        <View><T style={s.label}>โอนเข้าบัญชีของฉันไหม</T>{ownHint&&!toAccount&&<T style={{fontSize:12,color:toneText('#94703a')}}>ผู้รับตรงกับชื่อของคุณ น่าจะโอนเข้าบัญชีตัวเอง เลือกบัญชีปลายทาง</T>}<Choices items={[{id:'',name:'ไม่ใช่ (ใช้ไป)'},...state.data.accounts.filter(a=>a.id!==account)]} value={toAccount} onChange={v=>setToAccount(v??'')}/></View>
+        <View><View style={s.between}><T style={s.label}>บัญชี{kind==='transfer'?'ต้นทาง':''}</T>{remembered&&<T style={{fontSize:10,color:C.muted}}>เลือกบัญชีล่าสุดให้แล้ว</T>}</View><Choices items={withBankIcons(state.data.accounts,state.data.sources)} value={account} onChange={value=>{accountTouched.current=true;setRemembered(false);setAccount(value);if(value===toAccount)setToAccount('');}}/></View>
+        <View><T style={s.label}>โอนเข้าบัญชีของฉันไหม</T>{ownHint&&!toAccount&&<T style={{fontSize:12,color:toneText('#94703a')}}>ผู้รับตรงกับชื่อของคุณ น่าจะโอนเข้าบัญชีตัวเอง เลือกบัญชีปลายทาง</T>}<Choices items={[{id:'',name:'ไม่ใช่ (ใช้ไป)'},...withBankIcons(state.data.accounts.filter(a=>a.id!==account),state.data.sources)]} value={toAccount} onChange={v=>setToAccount(v??'')}/></View>
         <View style={s.grid}><View style={{flexGrow:1,flexBasis:180}}><DateField label="วันที่ทำรายการ" value={date} onChange={setDate}/></View><View style={{flexGrow:1,flexBasis:120}}><Field label="เวลาไทย (HH:mm)" value={time} onChangeText={setTime} keyboardType="numbers-and-punctuation" maxLength={5}/></View></View>
         {kind!=='transfer'&&<View><T style={s.label}>หมวดหมู่</T><Choices items={[{id:'none',name:'ยังไม่จัดหมวด'},...state.data.categories]} value={category??'none'} onChange={v=>setCategory(v==='none'?null:v)}/></View>}
         <Field label="ผู้รับ / ผู้โอน / ร้านค้า" value={counterparty} onChangeText={setCounterparty}/><Field label="หมายเหตุ" value={note} onChangeText={setNote} multiline/>

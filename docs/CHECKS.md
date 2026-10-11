@@ -129,6 +129,11 @@ Patched image processing to sharp 0.35.5 and tests to Vitest 5.0.3. The installe
 
 - LINE Flex redesign: compact gradient header (linearGradient box background with solid fallback) with title, amount, item count and a 60 px mascot; accounts with colour dots (no categories or share bars, since most spending is uncategorised); tinted status box (pending, OCR draft, own transfers); secondary/primary buttons. In-app preview renders the same payload (gradient, radius, padding, widths) on a light bubble in both themes. Payload under 30 KB (test).
 
+## 11 Oct 2026 (evening): no report catch-up
+- Slips page: the import result shows under "ดึงสลิปตอนนี้" and the upload result under "เลือกรูปสลิป" (were both at the card bottom).
+- Fix: "ดึงสลิปตอนนี้" pressed again within the same 5 minutes reused the finished scan job key, so nothing was scanned (the bar showed 0 of 0). Each press now queues a fresh scan job. Test fails on the old code, passes now.
+- `dueReportPeriods`: from 08:00 only yesterday, last week on Mondays, last month on the 1st. Missed days are never sent later (was up to 7 days). Queued reports still retry within 23 h. Tests updated (104 pass).
+
 ## 11 Oct 2026 (evening): bank icons, one-line chips, import cancel
 - Bank logos supplied in `apps/app/assets/banks/` cut to equal 96 px circles (`*-icon.png`, 3–5 KB each; Krungthai's white margin trimmed, K+ cropped round) and shown with a hairline ring before bank/account names: chips, slip cards, Drive sources, settings accounts, transaction rows. Checked on home, transactions, record and slips screens.
 - `Choices` chips stay on one line and scroll sideways everywhere (segmented bars unchanged).

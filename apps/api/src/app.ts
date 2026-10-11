@@ -121,8 +121,9 @@ export function createApp() {
     const today=thaiDate(),date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
     const body=z.object({from:date.default(today),to:date.default(today),source:z.enum(sourceCodes).nullable().default(null)}).refine(b=>b.from<=b.to).parse(await c.req.json().catch(()=>({})));
     const chosen=sources.filter((s:any)=>!body.source||s.source_code===body.source);
-    // Same key within 5 minutes: repeated presses reuse the queued scan.
-    for(const source of chosen)await enqueueScan(owner,source,`manual:${source.id}:${body.from}:${body.to}:${Math.floor(Date.now()/300000)}`,{from:body.from,to:body.to});
+    // A new key for every press: a key reused within minutes matched the finished job and nothing was scanned.
+    // Pressing twice is harmless (known Drive files are skipped; the tick lease keeps runs apart).
+    for(const source of chosen)await enqueueScan(owner,source,`manual:${source.id}:${body.from}:${body.to}:${Date.now()}`,{from:body.from,to:body.to});
     // One button also drafts OCR for earlier slips that have none yet.
     if(ocrEnabled()){
       const pending=(await rows(db,'slips',owner)).filter((s:any)=>s.origin!=='upload'&&!s.transaction_id&&s.status!=='duplicate'&&(!s.ocr_details||s.ocr_details.error));

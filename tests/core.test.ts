@@ -56,14 +56,14 @@ describe('money and reports',()=>{
     expect(likelyOwnTransfer(d,[],accounts)).toBe(true);
     expect(likelyOwnTransfer({...d,recipient_account:'xxx-x-x9999-x'},[],accounts)).toBe(false);
   });
-  it('sends yesterday at 08:00 for the full day, and selects previous week/month',()=>{
-    expect(dueReportPeriods(new Date('2026-10-06T07:59:00+07:00')).some(p=>p.key==='day:2026-10-05')).toBe(false);
-    expect(dueReportPeriods(new Date('2026-10-06T07:59:00+07:00')).some(p=>p.key==='day:2026-10-04')).toBe(true);
-    expect(dueReportPeriods(new Date('2026-10-06T08:00:00+07:00')).find(p=>p.key==='day:2026-10-05')).toMatchObject({start:'2026-10-04T17:00:00.000Z',end:'2026-10-05T17:00:00.000Z'});
-    expect(dueReportPeriods(new Date('2026-10-05T23:59:00+07:00')).some(p=>p.key==='day:2026-10-05')).toBe(false);
-    expect(dueReportPeriods(new Date('2026-10-06T08:00:00+07:00')).filter(p=>p.kind==='day')).toHaveLength(7);
-    const periods=dueReportPeriods(new Date('2026-10-01T08:00:00+07:00'));expect(periods.some(p=>p.key==='month:2026-09')).toBe(true);
-    expect(dueReportPeriods(new Date('2026-10-05T08:00:00+07:00')).some(p=>p.key==='week:2026-09-28')).toBe(true);
+  it('sends only yesterday at 08:00, last week on Monday and last month on the 1st, with no catch-up',()=>{
+    expect(dueReportPeriods(new Date('2026-10-06T07:59:00+07:00'))).toEqual([]);
+    expect(dueReportPeriods(new Date('2026-10-06T08:00:00+07:00'))).toEqual([{key:'day:2026-10-05',kind:'day',start:'2026-10-04T17:00:00.000Z',end:'2026-10-05T17:00:00.000Z'}]);
+    expect(dueReportPeriods(new Date('2026-10-06T23:59:00+07:00')).map(p=>p.key)).toEqual(['day:2026-10-05']);
+    expect(dueReportPeriods(new Date('2026-10-05T08:00:00+07:00')).map(p=>p.key)).toEqual(['day:2026-10-04','week:2026-09-28']);
+    expect(dueReportPeriods(new Date('2026-10-01T08:00:00+07:00')).map(p=>p.key)).toEqual(['day:2026-09-30','month:2026-09']);
+    expect(dueReportPeriods(new Date('2026-10-02T08:00:00+07:00')).some(p=>p.kind==='month')).toBe(false);
+    expect(dueReportPeriods(new Date('2026-10-06T08:00:00+07:00')).some(p=>p.kind==='week')).toBe(false);
     for(const t of ['23:35','23:55','00:00','00:04'])expect(shouldScan(new Date(`2026-10-05T${t}:00+07:00`))).toBe(true);
     for(const t of ['23:30','00:05','00:30','06:30','07:05','12:00'])expect(shouldScan(new Date(`2026-10-05T${t}:00+07:00`))).toBe(false);
   });

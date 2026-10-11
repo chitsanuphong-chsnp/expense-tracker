@@ -45,3 +45,10 @@ it('cancels the caller\'s queued import jobs',async()=>{
   expect(await (await post('/api/sync/cancel')).json()).toEqual({cancelled:4});
   expect(cancelImport).toHaveBeenCalledWith('owner-a');
 });
+it('queues a fresh scan on every press, even a minute after a finished one',async()=>{
+  getUser.mockResolvedValue({data:{user:user('owner-a')},error:null});tick.mockResolvedValue({processed:0});
+  vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-10-11T10:00:00Z'));
+  await post('/api/sync');vi.setSystemTime(new Date('2026-10-11T10:01:00Z'));await post('/api/sync');vi.useRealTimers();
+  const keys=enqueueScan.mock.calls.filter(c=>c[1].id==='source-1').map(c=>c[2]);
+  expect(keys).toHaveLength(2);expect(keys[0]).not.toBe(keys[1]);
+});

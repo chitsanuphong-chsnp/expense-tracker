@@ -105,21 +105,17 @@ export function summarize(data: Dataset, start: string, end: string, pendingEnd 
 }
 export function dueReportPeriods(now = new Date()) {
   const p = bangkokParts(now); const result: { key: string; kind: 'day' | 'week' | 'month'; start: string; end: string }[] = [];
-  // Yesterday's report is due at 08:00; catch up to seven missed days.
-  for (let i = 1; i <= 7; i++) {
-    if (i === 1 && p.hour < 8) continue;
-    const date = thaiDate(new Date(new Date(`${p.date}T12:00:00+07:00`).getTime() - i * 86400000));
-    result.push({ key: `day:${date}`, kind: 'day', ...rangeFor(date, 'day') });
+  // From 08:00: yesterday only, last week on Mondays, last month on the 1st. Missed days are not sent later;
+  // a report already queued still retries (08:05, night ticks) within its 23-hour window.
+  if (p.hour < 8) return result;
+  const today = new Date(`${p.date}T12:00:00+07:00`);
+  const yesterday = thaiDate(new Date(today.getTime() - 86400000));
+  result.push({ key: `day:${yesterday}`, kind: 'day', ...rangeFor(yesterday, 'day') });
+  if (today.getUTCDay() === 1) {
+    const lastMonday = thaiDate(new Date(today.getTime() - 7 * 86400000));
+    result.push({ key: `week:${lastMonday}`, kind: 'week', ...rangeFor(lastMonday, 'week') });
   }
-  if (p.hour >= 8) {
-    const today = new Date(`${p.date}T00:00:00+07:00`); const dow = new Date(`${p.date}T12:00:00+07:00`).getUTCDay();
-    const previousMonday = new Date(today.getTime() - (((dow+6)%7)+7)*86400000);
-    const week = rangeFor(thaiDate(previousMonday), 'week');
-    result.push({ key: `week:${thaiDate(previousMonday)}`, kind: 'week', ...week });
-    const first = new Date(`${p.date.slice(0,7)}-01T00:00:00+07:00`);
-    const prev = thaiDate(new Date(first.getTime()-86400000));
-    result.push({ key: `month:${prev.slice(0,7)}`, kind: 'month', ...rangeFor(prev,'month') });
-  }
+  if (p.date.endsWith('-01')) result.push({ key: `month:${yesterday.slice(0,7)}`, kind: 'month', ...rangeFor(yesterday, 'month') });
   return result;
 }
 export function shouldScan(now = new Date()) {

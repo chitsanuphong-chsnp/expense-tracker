@@ -44,8 +44,9 @@ export function Slips(){const {reduced}=useMotion(),success=useSuccess();const [
 function AddSlips(){
   const state=useData(),router=useRouter(),success=useSuccess(),today=thaiDate();
   const [importSince,setImportSince]=useState<string|null>(null),importAbort=useRef<AbortController|null>(null);
-  const [from,setFrom]=useState(today),[to,setTo]=useState(today),[bank,setBank]=useState('all'),[uploadBank,setUploadBank]=useState<string>('kplus'),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
-  async function run(fn:()=>Promise<void>){setBusy(true);setMessage('');try{await fn();}catch(e){setMessage(e instanceof Error?e.message:'ทำรายการไม่สำเร็จ');}finally{setBusy(false);}}
+  const [from,setFrom]=useState(today),[to,setTo]=useState(today),[bank,setBank]=useState('all'),[uploadBank,setUploadBank]=useState<string>('kplus'),[busy,setBusy]=useState(false),[fetchMessage,setFetchMessage]=useState(''),[uploadMessage,setUploadMessage]=useState('');
+  // Each result shows under its own section: Drive import or photo upload.
+  async function run(fn:()=>Promise<void>,show:(m:string)=>void){setBusy(true);setFetchMessage('');setUploadMessage('');try{await fn();}catch(e){show(e instanceof Error?e.message:'ทำรายการไม่สำเร็จ');}finally{setBusy(false);}}
   const fetchSlips=()=>run(async()=>{
     if(state.demo)throw new Error('โหมดตัวอย่างไม่เชื่อม Drive จริง');
     if(from>to)throw new Error('วันเริ่มต้องไม่เกินวันสิ้นสุด');
@@ -58,19 +59,19 @@ function AddSlips(){
       const r=await drainImport(state,await state.call('/sync','POST',{from,to,source:bank==='all'?null:bank},options),options);
       const found=(await state.call(`/sync/status?since=${encodeURIComponent(since)}`).catch(()=>null))?.slips;
       await state.refresh();
-      if(r.busy)setMessage('ระบบกำลังทำงานรอบตั้งเวลาอยู่ สลิปจะขึ้นเมื่อรอบนั้นเสร็จ');
-      else if(r.pending)setMessage(`ดึงแล้วบางส่วน เหลือ ${r.pending} งาน กดอีกครั้งได้`);
-      else if(found===0)setMessage(`ไม่พบสลิปใหม่ใน Drive ช่วง ${from===to?from:`${from} ถึง ${to}`} · โฟลเดอร์วันนั้นยังไม่มีรูป (มือถืออัปโหลด 23:30) หรือดึงไปแล้ว`);
+      if(r.busy)setFetchMessage('ระบบกำลังทำงานรอบตั้งเวลาอยู่ สลิปจะขึ้นเมื่อรอบนั้นเสร็จ');
+      else if(r.pending)setFetchMessage(`ดึงแล้วบางส่วน เหลือ ${r.pending} งาน กดอีกครั้งได้`);
+      else if(found===0)setFetchMessage(`ไม่พบสลิปใหม่ใน Drive ช่วง ${from===to?from:`${from} ถึง ${to}`} · โฟลเดอร์วันนั้นยังไม่มีรูป (มือถืออัปโหลด 23:30) หรือดึงไปแล้ว`);
       else success(found?`ดึงสลิปเสร็จแล้ว · ${found} ใบ`:'ดึงสลิปเสร็จแล้ว');
     }catch(e){
       if((e as any)?.code!=='CANCELLED')throw e;
     }finally{importAbort.current=null;setImportSince(null);}
-  });
+  },setFetchMessage);
   // Stops waiting now and drops the queued scan/QR jobs; slips already imported stay.
   async function cancelImport(){
     importAbort.current?.abort();
-    try{const r=await state.call('/sync/cancel','POST');await state.refresh();setMessage(`ยกเลิกแล้ว · สลิปที่ดึงมาแล้วยังอยู่${r.cancelled?` · ยกเลิก ${r.cancelled} งานที่ค้าง`:''}`);}
-    catch(e){setMessage(e instanceof Error?e.message:'ยกเลิกไม่สำเร็จ');}
+    try{const r=await state.call('/sync/cancel','POST');await state.refresh();setFetchMessage(`ยกเลิกแล้ว · สลิปที่ดึงมาแล้วยังอยู่${r.cancelled?` · ยกเลิก ${r.cancelled} งานที่ค้าง`:''}`);}
+    catch(e){setFetchMessage(e instanceof Error?e.message:'ยกเลิกไม่สำเร็จ');}
   }
   const upload=()=>run(async()=>{
     if(state.demo)throw new Error('โหมดตัวอย่างอัปโหลดสลิปจริงไม่ได้');
@@ -79,22 +80,23 @@ function AddSlips(){
     const asset=picked.assets[0],image=asset.base64??(asset.uri.startsWith('data:')?asset.uri:'');
     if(!image)throw new Error('อ่านไฟล์รูปไม่ได้');
     if(image.length>5_400_000)throw new Error('รูปใหญ่เกินไป (ไม่เกิน 4 MB)');
-    setMessage('กำลังอ่าน QR และ OCR');
+    setUploadMessage('กำลังอ่าน QR และ OCR');
     const r=await state.call('/slips/upload','POST',{source_code:uploadBank,image});
     await state.refresh();
-    if(r.duplicate){setMessage(r.transaction_id?'สลิปนี้บันทึกไปแล้ว':'สลิปนี้มีอยู่ในกล่องสลิปแล้ว');if(r.transaction_id)router.push({pathname:'/record',params:{id:r.transaction_id}});else router.push({pathname:'/record',params:{slip:r.slip_id}});return;}
+    if(r.duplicate){setUploadMessage(r.transaction_id?'สลิปนี้บันทึกไปแล้ว':'สลิปนี้มีอยู่ในกล่องสลิปแล้ว');if(r.transaction_id)router.push({pathname:'/record',params:{id:r.transaction_id}});else router.push({pathname:'/record',params:{slip:r.slip_id}});return;}
     router.push({pathname:'/record',params:{slip:r.slip_id}});
-  });
+  },setUploadMessage);
   return <Card style={{gap:14}}>
     <T style={s.bold}>ดึงสลิปจาก Drive</T>
     <View style={[s.row,{gap:10}]}><View style={{flex:1}}><DateField label="ตั้งแต่" value={from} onChange={setFrom}/></View><View style={{flex:1}}><DateField label="ถึง" value={to} onChange={setTo}/></View></View>
     <Choices value={bank} onChange={setBank} items={[{id:'all',name:'ทุกธนาคาร'},...sourceCodes.map(id=>({id,name:names[id],icon:<BankIcon code={id}/>}))]}/>
     <Button loading={busy} onPress={()=>void fetchSlips()}>ดึงสลิปตอนนี้</Button>
     {importSince&&<ImportProgress since={importSince} onCancel={()=>void cancelImport()}/>}
+    {!!fetchMessage&&<T accessibilityRole="alert" style={s.muted}>{fetchMessage}</T>}
     <T style={s.bold}>หรืออัปโหลดรูปสลิปเอง</T>
     <Choices value={uploadBank} onChange={v=>setUploadBank(v??'kplus')} items={sourceCodes.map(id=>({id,name:names[id],icon:<BankIcon code={id}/>}))}/>
     <Button secondary disabled={busy} onPress={()=>void upload()}>เลือกรูปสลิป</Button>
-    {!!message&&<T accessibilityRole="alert" style={s.muted}>{message}</T>}
+    {!!uploadMessage&&<T accessibilityRole="alert" style={s.muted}>{uploadMessage}</T>}
   </Card>;
 }
 function SourceForm({code}:{code:typeof sourceCodes[number]}){const success=useSuccess(),state=useData(),source=state.data.sources.find(s=>s.source_code===code),[folder,setFolder]=useState(source?.folder_id??''),[account,setAccount]=useState<string|null>(source?.account_id??null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);

@@ -5,10 +5,10 @@ const tx=(changes:Partial<Transaction>={}):Transaction=>({id:account,kind:'expen
 const data=(transactions:Transaction[]=[]):Dataset=>({accounts:[{id:account,name:'เงินสด',kind:'cash',bank_code:null,color:'#ffffff'}],categories:[],transactions,slips:[],sources:[],settings:{budget_satang:100000,line_connected:false,line_blocked:false},reports:[],rules:[]});
 describe('money and reports',()=>{
   it('uses exact integer satang and rejects rounding/invalid inputs',()=>{expect(parseMoney('1,234.56')).toBe(123456);expect(parseMoney('0.01')).toBe(1);for(const s of ['0','-1','1.001','1e3','NaN'])expect(parseMoney(s)).toBeNull();});
-  it('cuts daily totals at 23:00 Bangkok, excludes transfers and pending slips',()=>{
+  it('cuts daily totals at 23:00 Bangkok, counts own-account transfers as spending, excludes pending slips',()=>{
     const d=data([tx(),tx({occurred_at:'2026-10-05T23:00:00+07:00',amount_satang:90000}),tx({kind:'income',amount_satang:2000}),tx({kind:'transfer',to_account_id:other,amount_satang:50000})]);
     d.slips=[{id:other,source_code:'ttb',status:'needs_details',uploaded_at:'2026-10-05T22:00:00+07:00',transaction_id:null,qr_payload:'ref only',duplicate_of:null,error_code:null,drive_file_id:'file'}];
-    const r=rangeFor('2026-10-05','day',true),s=summarize(d,r.start,r.end);expect(s).toMatchObject({income:2000,expense:1050,net:950,count:2,pending:1});
+    const r=rangeFor('2026-10-05','day',true),s=summarize(d,r.start,r.end);expect(s).toMatchObject({income:2000,expense:51050,net:-49050,count:2,pending:1});
   });
   it('uses Monday weeks and prior months across year/leap boundaries',()=>{
     expect(rangeFor('2026-01-01','week')).toEqual({start:'2025-12-28T17:00:00.000Z',end:'2026-01-04T17:00:00.000Z'});
@@ -42,7 +42,7 @@ describe('money and reports',()=>{
     const base={source_code:'ttb' as const,status:'needs_details' as const,uploaded_at:'2026-10-05T23:31:00+07:00',transaction_id:null,qr_payload:'ref',duplicate_of:null,error_code:null,drive_file_id:'file'};
     const data2=data();data2.settings.own_names=names;data2.slips=[{...base,id:'a',ocr_details:d('นาย ชิษณุพงศ์ ย.')},{...base,id:'b',ocr_details:{...d('ร้านกาแฟ'),amount_satang:6500}}];
     const day=rangeFor('2026-10-05','day'),w=dailyPendingWindow('2026-10-05');
-    expect(summarize(data2,day.start,day.end,w.end,w.start)).toMatchObject({pending:2,ocr_draft:{amount_satang:6500,slips:1,own_transfers:1}});
+    expect(summarize(data2,day.start,day.end,w.end,w.start)).toMatchObject({pending:2,ocr_draft:{amount_satang:506500,slips:2,own_transfers:1}});
   });
   it('matches masked slip numbers to full account numbers before names',()=>{
     expect(maskMatches('xxx-x-x5851-x','1234558510')).toBe(true);

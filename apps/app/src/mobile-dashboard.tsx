@@ -3,7 +3,7 @@ import {tone,toneText,barColor} from './theme';
 import {Image,ScrollView,StyleSheet,View} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {useRouter} from 'expo-router';
-import {ArrowDownLeft,ArrowUpRight,ArrowLeftRight,ChartNoAxesCombined,ChevronRight,Plus,Receipt,Wallet} from 'lucide-react-native';
+import {ArrowDownLeft,ArrowUpRight,ChartNoAxesCombined,ChevronRight,Plus,Receipt,Wallet} from 'lucide-react-native';
 import {money,rangeFor,summarize,thaiDate} from '@expense/core';
 import {useData} from './state';
 import {T,Card,C,s} from './ui';
@@ -49,7 +49,7 @@ export function MobileDashboard(){
     </View>
 
     <LinearGradient colors={['#4876e2','#7756ca']} start={{x:0,y:0}} end={{x:1,y:1}} style={{padding:18,borderRadius:24,gap:13,boxShadow:'0 9px 22px rgba(78,100,203,.16)'}}>
-      <View style={{flexDirection:'row',alignItems:'center',gap:10}}><View style={{flex:1,minWidth:0,gap:5}}><T style={{fontSize:12,color:toneText('#eef0ff')}}>วันนี้ใช้ไป</T><Reveal replayKey={amount}><T accessibilityLabel={`วันนี้ใช้ไป ${amount}`} style={{fontFamily:'NotoLatinBold',fontSize:amount.length>14?25:amount.length>11?29:36,lineHeight:46,color:toneText('white')}}>{amount}</T></Reveal><T style={{fontSize:10,color:toneText('#e2e8ff')}}>{summary.count} รายการ · ไม่รวมโอนระหว่างบัญชี</T></View>
+      <View style={{flexDirection:'row',alignItems:'center',gap:10}}><View style={{flex:1,minWidth:0,gap:5}}><T style={{fontSize:12,color:toneText('#eef0ff')}}>วันนี้ใช้ไป</T><Reveal replayKey={amount}><T accessibilityLabel={`วันนี้ใช้ไป ${amount}`} style={{fontFamily:'NotoLatinBold',fontSize:amount.length>14?25:amount.length>11?29:36,lineHeight:46,color:toneText('white')}}>{amount}</T></Reveal><T style={{fontSize:10,color:toneText('#e2e8ff')}}>{summary.count} รายการ</T></View>
         {showArt&&<Mascot size={76}/>}
       </View>
       <MotionPressable accessibilityRole="button" onPress={()=>router.push('/record')} style={{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:7,backgroundColor:tone('white'),borderRadius:15}}><Plus size={16} color={toneText('#5264b2')}/><T style={{fontFamily:'NotoThaiBold',fontSize:12,color:toneText('#3d4d75')}}>บันทึกรายการ</T><ChevronRight size={14} color={toneText('#8190ac')}/></MotionPressable>
@@ -70,8 +70,8 @@ export function MobileDashboard(){
 
     <View style={{gap:9}}><View style={s.between}><T style={m.sectionTitle}>รายการล่าสุด</T><MotionPressable accessibilityRole="button" onPress={()=>router.push('/transactions')} hitSlop={8}><T style={{fontSize:11,color:C.primary}}>ดูทั้งหมด ›</T></MotionPressable></View>{recent.map(item=>{
       const account=data.accounts.find(account=>account.id===item.account_id),category=data.categories.find(category=>category.id===item.category_id);
-      const color=item.kind==='income'?C.green:item.kind==='transfer'?C.primary:C.red,Icon=item.kind==='income'?ArrowDownLeft:item.kind==='transfer'?ArrowLeftRight:ArrowUpRight;
-      return <MotionPressable accessibilityRole="button" key={item.id} onPress={()=>router.push({pathname:'/record',params:{id:item.id}})} style={{backgroundColor:tone('white'),borderRadius:17,padding:13,flexDirection:'row',alignItems:'center',gap:10}}><View style={{width:35,height:35,borderRadius:12,backgroundColor:`${category?.color??color}18`,alignItems:'center',justifyContent:'center'}}><Icon size={16} color={category?.color??color}/></View><View style={{flex:1,minWidth:0,gap:4}}><T style={{fontSize:12,fontFamily:'NotoThaiBold'}} numberOfLines={1}>{item.note||item.counterparty||'รายการ'}</T><T style={{fontSize:9,color:C.muted}} numberOfLines={1}>{account?.name} · {category?.name??'ยังไม่จัดหมวด'} · {new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short'}).format(new Date(item.occurred_at))}</T></View><T style={[m.amount,{fontSize:13,color,flexShrink:0}]}>{item.kind==='income'?'+':item.kind==='expense'?'-':''}{money(item.amount_satang)}</T></MotionPressable>;
+      const color=item.kind==='income'?C.green:C.red,Icon=item.kind==='income'?ArrowDownLeft:ArrowUpRight,toAccount=data.accounts.find(a=>a.id===item.to_account_id);
+      return <MotionPressable accessibilityRole="button" key={item.id} onPress={()=>router.push({pathname:'/record',params:{id:item.id}})} style={{backgroundColor:tone('white'),borderRadius:17,padding:13,flexDirection:'row',alignItems:'center',gap:10}}><View style={{width:35,height:35,borderRadius:12,backgroundColor:`${category?.color??color}18`,alignItems:'center',justifyContent:'center'}}><Icon size={16} color={category?.color??color}/></View><View style={{flex:1,minWidth:0,gap:4}}><T style={{fontSize:12,fontFamily:'NotoThaiBold'}} numberOfLines={1}>{item.note||item.counterparty||'ใช้ไป'}</T><T style={{fontSize:9,color:C.muted}} numberOfLines={1}>{account?.name}{toAccount?` → ${toAccount.name}`:''} · {category?.name??'ยังไม่จัดหมวด'} · {new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short'}).format(new Date(item.occurred_at))}</T></View><T style={[m.amount,{fontSize:13,color,flexShrink:0}]}>{item.kind==='income'?'+':'-'}{money(item.amount_satang)}</T></MotionPressable>;
     })}{!recent.length&&<Card><T style={m.small}>บันทึกรายการแรกได้จากปุ่มด้านบน</T></Card>}</View>
   </View>;
 }

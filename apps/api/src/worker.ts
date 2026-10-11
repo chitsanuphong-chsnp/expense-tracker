@@ -84,8 +84,8 @@ async function sendReport(owner:string,period:any) {
   }catch(e){await db.from('reports').update({status:'retry',error_code:safeCode(e)}).eq('id',report.id).eq('owner_id',owner);throw e;}
 }
 export function safeCode(e:unknown) { const m=e instanceof Error?e.message:'';return /^[A-Z][A-Z0-9_]{1,60}$/.test(m)?m:'PROCESSING_FAILED'; }
-async function tickUnlocked(now:Date,budgetMs:number) {
-  const db=admin(),deadline=Date.now()+budgetMs;const profiles=checked(await db.from('profiles').select('*'))??[];
+async function tickUnlocked(now:Date,budgetMs:number,importOnly:boolean) {
+  const db=admin(),deadline=Date.now()+budgetMs;const profiles=importOnly?[]:checked(await db.from('profiles').select('*'))??[];
   for(const profile of profiles) {
     if(shouldScan(now))for(const source of await (async()=>checked(await db.from('drive_sources').select('*').eq('owner_id',profile.id)))()??[]) {
       // Night scans cover yesterday and today, never before the owner's import start date.
@@ -103,6 +103,7 @@ async function tickUnlocked(now:Date,budgetMs:number) {
   // Leave room for the job in hand: Paddle needs up to ~2 min per slip, Tesseract a few seconds.
   const margin=ocrEnabled()&&process.env.OCR_ENGINE==='paddle'&&budgetMs>=180000?120000:30000;
   while(Date.now()<deadline-margin) {
+    if(importOnly&&!await importJobClaimable())break;
     const job=(checked(await db.rpc('claim_job'))??[])[0];if(!job)break;
     try {
       const done=job.kind==='scan'?await scan(job.owner_id,job.payload.source_id,scanRange(job.payload),deadline):job.kind==='qr'?(await qr(job.owner_id,job.payload.slip_id),true):(await sendReport(job.owner_id,job.payload),true);
@@ -117,15 +118,33 @@ async function tickUnlocked(now:Date,budgetMs:number) {
   return {processed};
 }
 // Scheduled ticks get the full Vercel budget; a manual run from the app returns sooner and the app calls again while work remains.
-export async function tick(now=new Date(),budgetMs=205000) {
+// importOnly (the app's "ดึงสลิปตอนนี้"): run queued scan/QR jobs only. No scheduled scans, and LINE reports are
+// neither queued nor sent, so a manual import never pushes catch-up Flex messages.
+export async function tick(now=new Date(),budgetMs=205000,importOnly=false) {
   const db=admin(),token=checked(await db.rpc('acquire_tick'));
   if(!token)return {processed:0,busy:true};
-  try{return await tickUnlocked(now,budgetMs);}finally{checked(await db.rpc('release_tick',{p_token:token}));}
+  try{return await tickUnlocked(now,budgetMs,importOnly);}finally{checked(await db.rpc('release_tick',{p_token:token}));}
+}
+// Same condition as claim_job; claim_job takes scan and QR jobs before reports, so while one is claimable the next
+// claim is an import job (the tick lease keeps other workers out).
+async function importJobClaimable() {
+  const now=new Date().toISOString();
+  const r=await admin().from('jobs').select('id',{count:'exact',head:true}).in('kind',['scan','qr']).lt('attempts',5)
+    .or(`and(status.eq.pending,next_run_at.lte.${now}),and(status.eq.running,lease_until.lt.${now})`);
+  checked(r);return (r.count??0)>0;
 }
 // Older queued jobs (before date ranges) scan only the last two days.
 function scanRange(payload:any):ScanRange{
   if(payload.from&&payload.to)return {from:payload.from,to:payload.to};
   const today=thaiDate();return {from:thaiDate(new Date(Date.now()-86400000)),to:today};
+}
+// Live progress for the app's import bar: import jobs still waiting, and those finished since the import began
+// (QR jobs created since then = slips found).
+export async function importProgress(owner:string,since:string) {
+  const db=admin(),count=async(q:any)=>{const r=await q;checked(r);return r.count??0;};
+  const jobs=()=>db.from('jobs').select('id',{count:'exact',head:true}).eq('owner_id',owner).in('kind',['scan','qr']);
+  const [pending,done,slips]=await Promise.all([count(jobs().in('status',['pending','running'])),count(jobs().in('status',['done','failed']).gte('created_at',since)),count(db.from('jobs').select('id',{count:'exact',head:true}).eq('owner_id',owner).eq('kind','qr').gte('created_at',since))]);
+  return {pending,done,slips};
 }
 export async function pendingImportJobs(owner:string) {
   const r=await admin().from('jobs').select('id',{count:'exact',head:true}).eq('owner_id',owner).in('kind',['scan','qr']).in('status',['pending','running']);

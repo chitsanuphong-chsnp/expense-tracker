@@ -113,7 +113,8 @@ export function createApp() {
     for(let start=0;start<pending.length;start+=100){
       checked(await db.from('jobs').upsert(pending.slice(start,start+100).map(s=>({owner_id:owner,job_key:`ocr-backfill:${s.id}:${key}`,kind:'qr',payload:{slip_id:s.id}})),{onConflict:'owner_id,job_key',ignoreDuplicates:true}));
     }
-    return c.json({queued:pending.length});
+    // Run now (same lease as the scheduler); the app keeps calling /api/sync/run while work remains.
+    return c.json({queued:pending.length,...await runImportNow(owner)});
   });
 app.get('/api/slips/:id/image',async c=>{
     assertDriveOwner(c.get('owner'));

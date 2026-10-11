@@ -61,7 +61,7 @@ function RecordForm(){
     <View style={{flexDirection:split?'row':'column',gap:24}}>
       {slip&&<View style={{width:split?'42%':'100%',gap:12}}><SlipImage id={slip.id} height={split?420:250}/><T style={s.muted}>ระบุวันที่ทำรายการจริง วันที่อัปโหลดอาจเป็นคนละวัน</T><QrDetails slip={slip}/>{!!slip.qr_payload&&<T selectable numberOfLines={3} style={{fontSize:10,color:C.muted}}>QR: {slip.qr_payload}</T>}</View>}
       <View style={{flex:1,minWidth:0,gap:18}}>
-        <Choices value={kind} onChange={v=>setKind(v as typeof kind)} items={Object.entries(names).map(([id,name])=>({id,name}))}/>
+        <Choices value={kind} onChange={v=>setKind(v as typeof kind)} items={Object.entries(names).filter(([id])=>id!=='income'||old?.kind==='income').map(([id,name])=>({id,name}))}/>
         <Field label="จำนวนเงิน (บาท)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.00" style={{fontFamily:'NotoLatinBold',fontSize:30,paddingVertical:18}}/>
         <View><View style={s.between}><T style={s.label}>บัญชี{kind==='transfer'?'ต้นทาง':''}</T>{remembered&&<T style={{fontSize:10,color:C.muted}}>เลือกบัญชีล่าสุดให้แล้ว</T>}</View><Choices items={state.data.accounts} value={account} onChange={value=>{accountTouched.current=true;setRemembered(false);setAccount(value);if(value===toAccount)setToAccount('');}}/></View>
         {kind==='transfer'&&<View><T style={s.label}>บัญชีปลายทาง</T><Choices items={state.data.accounts.filter(a=>a.id!==account)} value={toAccount} onChange={setToAccount}/></View>}

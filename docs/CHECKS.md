@@ -103,3 +103,10 @@ Patched image processing to sharp 0.35.5 and tests to Vitest 5.0.3. The installe
 - "ซิงก์ตอนนี้" runs the import immediately (60 s budget per call, up to 10 calls) under the shared tick lease; reports busy instead of overlapping a scheduled run; refused for non-Drive-owner accounts (API tests).
 - Failed jobs keep the existing backoff and retry at the next scheduled call; missed reports still catch up 7 days. pg_cron itself is not available in PGlite, so the SQL runs untested until Supabase.
 
+## 11 Oct 2026: Tesseract on Vercel, no income, OCR from the app
+- OCR engine is Tesseract.js inside the API. Build ships Thai/English models (`@tesseract.js-data/*`), a bundled worker and the engine `.wasm` in `dist/` (a @vercel/nft trace showed the `.wasm` files would otherwise be missing). Verified with `tesseract.js-core` hidden from `node_modules`.
+- 16 real slips through `readSlipOcr`: amount, date, time and own-transfer hint 16/16 each; ~1.3 s per slip. Real slips and their OCR text stay out of Git.
+- "อ่าน OCR สลิปที่ค้าง" now queues and runs immediately (same lease and 60 s loop as "ซิงก์ตอนนี้"). Paddle workflow is manual only (no schedule).
+- Income removed from the app: dashboard tiles (income, net), reports cards, per-account income, record form option (still shown when editing an old income entry) and the type filter; demo data has no income. Existing income categories in a real account remain until deleted.
+- Typecheck, 90 tests, API/Web build passed. Not yet run on a real Vercel deployment.
+

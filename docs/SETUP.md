@@ -144,7 +144,7 @@ LINE เก็บ retry key 24 ชั่วโมง หากงานขาด
    | `expense-tick-report` | `0 1 * * *` | 08:00 | Flex รายวัน / จันทร์ +สัปดาห์ / วันที่ 1 +เดือน |
    | `expense-tick-report-retry` | `5 1 * * *` | 08:05 | ลองส่งรายงานที่ล้มเหลวอีกรอบ |
 
-   นอกเวลาเหล่านี้ Cron ไม่เรียก API เลย OCR อยู่บน GitHub Actions (ข้อ 6.1)
+   นอกเวลาเหล่านี้ Cron ไม่เรียก API เลย OCR ทำในรอบสแกนกลางคืนบน Vercel (ข้อ 6.1)
 3. ใน Cron dashboard ตรวจ run history และตรวจ HTTP response เพิ่ม เพราะสถานะ Cron สำเร็จอาจหมายถึงส่ง HTTP request เข้าคิวแล้ว ยังไม่ใช่ worker สำเร็จ
 
 ```sql
@@ -158,23 +158,16 @@ select kind, status, error_code, attempts, next_run_at from public.jobs order by
 
 เมื่อ deploy และ Cron พร้อม ปิดคอมและแอปได้ งานรันบน Cloud ทดสอบจริงด้วยการอัปโหลดสลิป ดูสถานะนำเข้าและรับ LINE หนึ่งรอบก่อนใช้ประจำ
 
-## 6.1 OCR บน GitHub Actions (ฟรี)
+## 6.1 OCR (Tesseract บน Vercel)
 
 รัน `supabase/migrations/005_own_identity.sql` ใน SQL Editor ก่อน (ช่อง "ชื่อของฉันบนสลิป" และ "เลขบัญชีบนสลิป") แล้วตรวจด้วย `supabase/check-migrations.sql`
 
-`.github/workflows/slip-ocr.yml` ใช้ PaddleOCR อ่านร่างยอด/วันเวลาของสลิปที่ยังไม่บันทึก แล้วเขียนลง `slips.ocr_details` ไม่สร้างรายการเงินเอง
+1. Vercel → Backend project → Settings → Environment Variables ตั้ง `OCR_ENABLED=true` และ `OCR_ENGINE=tesseract` แล้ว redeploy
+2. ไม่ต้องตั้งอย่างอื่น: โมเดลภาษาไทย/อังกฤษและตัว OCR ถูกรวมไว้ใน `dist/` ตอน build ไม่ดาวน์โหลดตอนรัน
+3. OCR ทำงานเองในรอบสแกนกลางคืน (23:35–00:00) และเมื่อกด "ซิงก์ตอนนี้" หรือ "อ่าน OCR สลิปที่ค้าง" ในแอป
+4. ทดสอบ: หน้าสลิป → "อ่าน OCR สลิปที่ค้าง" → เปิดสลิปดูร่างยอด/วันเวลา
 
-| รอบ (เวลาไทย) | ทำอะไร |
-|---|---|
-| 01:30 หลัก | อ่านสลิปที่ยังไม่มีร่าง |
-| 06:45 สำรอง | เช็กก่อน ถ้าไม่มีสลิปค้างจบทันที ไม่ติดตั้ง Paddle |
-
-1. GitHub repo → Settings → Secrets and variables → Actions → New repository secret ใส่ค่าเดียวกับ Backend: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`, `DRIVE_OWNER_ID`
-2. Workflow แบบตั้งเวลาทำงานเฉพาะบน default branch (`main`) ต้อง merge ก่อน
-3. ทดสอบ: Actions → Slip OCR → Run workflow แล้วเปิดหน้าสลิปในแอปดูร่าง
-4. Vercel ไม่ต้องเปิด OCR (`OCR_ENABLED=false`) ปุ่ม "อ่าน OCR สลิปที่ค้าง" ในแอปใช้กับ API ในเครื่องที่เปิด OCR เท่านั้น
-
-Repo นี้เป็น public log ของ Actions ทุกคนเปิดดูได้ runner พิมพ์เฉพาะจำนวน ห้ามเพิ่ม log ที่มีข้อความ ยอด ชื่อ หรือ ID ของสลิป อ่านไม่สำเร็จซ้ำได้สูงสุด 3 ครั้งต่อใบ GitHub อาจเลื่อนเวลารอบตั้งเวลาช่วงคนใช้เยอะ และปิด schedule อัตโนมัติถ้า repo public ไม่มีความเคลื่อนไหว 60 วัน
+แผนสำรอง (ไม่ต้องตั้งตอนนี้): ถ้าใช้ไปแล้ว Tesseract อ่านไม่แม่น ใช้ Paddle บน GitHub Actions ตาม [OCR.md](OCR.md) — workflow ไม่รันเอง ต้องกด Run workflow
 
 ## 7. Expo Go / มือถือ
 

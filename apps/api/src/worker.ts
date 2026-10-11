@@ -92,8 +92,8 @@ async function tickUnlocked(now:Date,budgetMs:number) {
     }
   }
   let processed=0;
-  // Leave room for the job in hand; short manual runs keep the 30s margin even with local OCR.
-  const margin=ocrEnabled()&&budgetMs>=180000?120000:30000;
+  // Leave room for the job in hand: Paddle needs up to ~2 min per slip, Tesseract a few seconds.
+  const margin=ocrEnabled()&&process.env.OCR_ENGINE==='paddle'&&budgetMs>=180000?120000:30000;
   while(Date.now()<deadline-margin) {
     const job=(checked(await db.rpc('claim_job'))??[])[0];if(!job)break;
     try {

@@ -1,5 +1,5 @@
 import {createWorker,PSM} from 'tesseract.js';
-import {mkdtemp,writeFile,rm,mkdir} from 'node:fs/promises';
+import {mkdtemp,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -25,8 +25,9 @@ export async function readSlipOcr(bytes:Buffer,bank:SourceCode,uploadedAt?:strin
     const output=JSON.parse(result.stdout.trim());text=output.text;
    }finally{if(!resolve(folder).startsWith(resolve(tmpdir())+ (process.platform==='win32'?'\\':'/')))throw Error('INVALID_TEMP_PATH');await rm(folder,{recursive:true,force:true});}
   }else if(engine==='tesseract'){
-   const cache=resolve(repo,'.local/ocr-models');await mkdir(cache,{recursive:true});
-   worker??=createWorker('tha+eng',1,{cachePath:cache});
+   // Models are copied into dist/tessdata by the build (same path from src/ and the dist bundle); no download, no cache writes.
+   const dist=(file:string)=>fileURLToPath(new URL(`../dist/${file}`,import.meta.url));
+   worker??=createWorker('tha+eng',1,{workerPath:dist('tesseract-worker.cjs'),langPath:dist('tessdata'),cacheMethod:'none'});
    const w=await worker;
    // Sparse mode preserved names better than AUTO on the supplied ttb slip.
    await w.setParameters({tessedit_pageseg_mode:PSM.SPARSE_TEXT});

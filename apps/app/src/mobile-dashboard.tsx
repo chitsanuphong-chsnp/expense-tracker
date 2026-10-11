@@ -28,8 +28,6 @@ export function MobileDashboard(){
   const cashIds=new Set(data.accounts.filter(account=>account.kind==='cash').map(account=>account.id));
   const cash=summary.byAccount.filter(account=>cashIds.has(account.id)).reduce((sum,account)=>sum+account.expense,0);
   const tiles=[
-    {label:'รายรับวันนี้',value:money(summary.income),background:'#eeeafb',color:'#8670d3',icon:ArrowDownLeft,path:'/transactions' as const},
-    {label:'เงินสุทธิวันนี้',value:money(summary.net),background:'#e7f2fc',color:'#439bd0',icon:Wallet,path:'/transactions' as const},
     {label:'เงินสดใช้ไป',value:money(cash),background:'#fff3df',color:'#d4a247',icon:Wallet,path:'/transactions' as const},
     {label:'สลิปรอข้อมูล',value:`${pending} สลิป`,background:'#e2f4ed',color:'#2daa89',icon:Receipt,path:'/slips' as const},
   ];

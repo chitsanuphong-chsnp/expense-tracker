@@ -11,6 +11,8 @@
     "@expense/core": "*",
     "@hono/node-server": "^1.19.0",
     "@supabase/supabase-js": "^2.95.3",
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/tha": "^1.0.0",
     "google-auth-library": "^10.5.0",
     "hono": "^4.11.0",
     "jsqr": "^1.4.0",

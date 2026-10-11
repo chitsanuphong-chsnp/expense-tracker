@@ -10,6 +10,7 @@ import {safeReturnPath} from '../src/auth-policy';
 import {Loading,MotionProvider} from '../src/motion';
 import {ThemeProvider,useTheme} from '../src/theme-provider';
 import {OpeningAnimation} from '../src/splash';
+import {LinearGradient} from 'expo-linear-gradient';
 
 function Gate(){const state=useData(),path=usePathname(),params=useGlobalSearchParams();
   if(!state.ready)return <Loading fullScreen label="กำลังเตรียมสมุดบันทึก"/>;
@@ -24,5 +25,5 @@ export default function Layout(){const [fonts,error]=useFonts({NotoThai:require(
 }
 function Shell({fontsReady}:{fontsReady:boolean}){
   const path=usePathname(),authPage=path==='/login'||path.startsWith('/auth/'),{dark}=useTheme(),[intro,setIntro]=React.useState(true);
-  return <MotionProvider><SafeAreaProvider><SafeAreaView style={{flex:1,backgroundColor:authPage?tone('#0d1120'):C.bg}} edges={['top','left','right','bottom']}><StatusBar style={authPage||dark?'light':'dark'}/>{!fontsReady?<Loading fullScreen fontsReady={false} label="กำลังเปิดแอป"/>:<DataProvider><Gate key={dark?'dark':'light'}/></DataProvider>}{fontsReady&&intro&&<OpeningAnimation onDone={()=>setIntro(false)}/>}</SafeAreaView></SafeAreaProvider></MotionProvider>;
+  return <MotionProvider><SafeAreaProvider><SafeAreaView style={{flex:1,backgroundColor:authPage?tone('#0d1120'):C.bg}} edges={['top','left','right','bottom']}><StatusBar style={authPage||dark?'light':'dark'}/>{!fontsReady?<LinearGradient colors={['#1d2470','#4a3fb8','#7a4fd0']} start={{x:0.1,y:0}} end={{x:0.9,y:1}} style={{flex:1}}/>:<DataProvider><Gate key={dark?'dark':'light'}/></DataProvider>}{fontsReady&&intro&&<OpeningAnimation onDone={()=>setIntro(false)}/>}</SafeAreaView></SafeAreaProvider></MotionProvider>;
 }

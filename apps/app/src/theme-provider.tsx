@@ -5,10 +5,10 @@ import {applyTheme,C} from './ui';
 import type {ThemeMode} from './theme';
 
 const key='expense.theme';
-const Context=createContext<{mode:ThemeMode;dark:boolean;setMode:(mode:ThemeMode)=>void}>({mode:'system',dark:false,setMode:()=>{}});
+const Context=createContext<{mode:ThemeMode;dark:boolean;setMode:(mode:ThemeMode)=>void}>({mode:'light',dark:false,setMode:()=>{}});
 // Per-device preference; "system" follows the phone/browser setting.
 export function ThemeProvider({children}:{children:React.ReactNode}){
-  const system=useColorScheme(),[mode,setModeState]=useState<ThemeMode>('system');
+  const system=useColorScheme(),[mode,setModeState]=useState<ThemeMode>('light'); // light unless the owner picks another
   useEffect(()=>{AsyncStorage.getItem(key).then(v=>{if(v==='light'||v==='dark'||v==='system')setModeState(v);}).catch(()=>{});},[]);
   const dark=mode==='dark'||(mode==='system'&&system==='dark');
   applyTheme(dark); // before children render; the layout remounts the screens when this changes

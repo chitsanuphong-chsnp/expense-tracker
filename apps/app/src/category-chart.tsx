@@ -11,7 +11,7 @@ export function CategoryChart({summary}:{summary:Summary}){
   useEffect(()=>{if(selected&&!rows.some(row=>row.id===selected))setSelected(null);},[summary,selected]);
   const item=rows.find(row=>row.id===selected),size=176,radius=69,circumference=2*Math.PI*radius;
   let consumed=0;
-  return <View style={{gap:15}}><T style={s.bold}>สัดส่วนที่ใช้ไปแต่ละหมวด</T>{!summary.expense?<View style={{padding:25,alignItems:'center',gap:7}}><T style={s.muted}>ยังไม่มีรายจ่ายในช่วงนี้</T><T style={{fontSize:11,color:C.muted}}>บันทึกรายการแล้วกราฟจะอัปเดตที่นี่</T></View>:<View style={{flexDirection:width>=720?'row':'column',alignItems:'center',gap:22}}>
+  return <View style={{gap:15}}><T style={s.bold}>สัดส่วนที่ใช้ไปแต่ละหมวด</T>{!summary.expense?<View style={{padding:25,alignItems:'center',gap:7}}><T style={s.muted}>ยังไม่มียอดใช้ไปในช่วงนี้</T><T style={{fontSize:11,color:C.muted}}>บันทึกรายการแล้วกราฟจะอัปเดตที่นี่</T></View>:<View style={{flexDirection:width>=720?'row':'column',alignItems:'center',gap:22}}>
     <Reveal replayKey={`${summary.expense}:${selected}`} style={{width:size,height:size,flexShrink:0}}><Svg width={size} height={size} accessible={false}><Circle cx={size/2} cy={size/2} r={radius} stroke='#eff1f7' strokeWidth={22} fill="none"/><G rotation={-90} origin={`${size/2}, ${size/2}`}>{rows.map(row=>{
       const length=row.expense/summary.expense*circumference,offset=consumed;consumed+=length;
       return <Circle key={row.id} cx={size/2} cy={size/2} r={radius} stroke={row.color} strokeWidth={row.id===selected?26:22} fill="none" strokeDasharray={`${length} ${circumference-length}`} strokeDashoffset={-offset} opacity={selected&&row.id!==selected?0.35:1}/>;

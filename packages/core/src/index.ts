@@ -172,7 +172,7 @@ export function flexReport(summary:Summary,key:string,origin:string,syncStatus:s
     ...(mascotUrl?[{type:'image' as const,url:mascotUrl,size:'60px',aspectRatio:'1:1',aspectMode:'fit' as const,flex:0}]:[])]};
   const body:FlexBox={type:'box',layout:'vertical',spacing:'md',paddingAll:'18px',contents:[
     heading('แยกตามบัญชี'),
-    ...(accounts.length?accounts:[text('ไม่มีรายการใช้จ่ายในช่วงนี้',{size:'xs',color:'#8a94a8'})]),
+    ...(accounts.length?accounts:[text('ไม่มียอดใช้ไปในช่วงนี้',{size:'xs',color:'#8a94a8'})]),
     {type:'box',layout:'vertical',spacing:'xs',margin:'md',paddingAll:'12px',cornerRadius:'12px',backgroundColor:'#fff7e8',contents:notes},
     text(syncStatus,{size:'xxs',color:'#8a94a8'})]};
   const footer:FlexBox={type:'box',layout:'horizontal',spacing:'sm',paddingAll:'14px',contents:[

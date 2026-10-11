@@ -16,7 +16,7 @@ function AuthShell({title,subtitle,children}:{title:string;subtitle:string;child
   const hero=<View style={{width:desktop?undefined:'100%',flex:desktop?1:undefined,minWidth:0,padding:desktop?28:25,paddingTop:desktop?20:34,paddingBottom:desktop?30:38,gap:desktop?38:23}}>
     <View style={{flexDirection:'row',alignItems:'center',gap:11}}><Image source={require('../assets/icon-v2-header.png')} accessibilityIgnoresInvertColors style={{width:44,height:44,borderRadius:14}}/><T style={{fontFamily:'NotoLatinBold',fontSize:desktop?22:19,color:'white'}}>Expense Tracker</T></View>
     <View style={{flexDirection:'row',alignItems:'center',gap:12}}><View style={{flex:1,minWidth:0,gap:10}}><T style={{color:'white',fontFamily:'NotoThaiBold',fontSize:desktop?38:width<350?25:29,lineHeight:desktop?54:41}}>{title}</T><T style={{color:'#b3b9cc',fontSize:desktop?15:12,lineHeight:desktop?27:21}}>{subtitle}</T></View><Mascot size={desktop?116:80} pose="idle" auto={false} interactive={false}/></View>
-    {desktop&&<View style={{borderLeftWidth:2,borderColor:'#8799e3',paddingLeft:17,gap:8}}><T style={{color:'#e3e7ff',fontSize:15}}>ทุกการใช้จ่าย มีที่เก็บ</T><T style={{color:'#979fb8',fontSize:12,lineHeight:23}}>รวมบัญชี สลิป และเงินสด{ '\n' }ให้คุณเห็นภาพเงินของตัวเองได้ชัดขึ้น</T></View>}
+    {desktop&&<View style={{borderLeftWidth:2,borderColor:'#8799e3',paddingLeft:17,gap:8}}><T style={{color:'#e3e7ff',fontSize:15}}>ทุกยอดที่ใช้ไป มีที่เก็บ</T><T style={{color:'#979fb8',fontSize:12,lineHeight:23}}>รวมบัญชี สลิป และเงินสด{ '\n' }ให้คุณเห็นภาพเงินของตัวเองได้ชัดขึ้น</T></View>}
   </View>;
   return <KeyboardAvoidingView style={{flex:1,backgroundColor:'#0d1120'}} behavior={Platform.OS==='ios'?'padding':undefined}><ImageBackground source={require('../assets/auth/login-budget-desk-v2.jpg')} resizeMode="cover" style={{flex:1,overflow:'hidden'}} imageStyle={desktop?{width:'100%',height:'100%',transform:[{scaleX:-1}]}:{width:'100%',height:300}}><View style={{position:'absolute',top:0,right:0,bottom:0,left:0,backgroundColor:'#070b1866'}} pointerEvents="none"/>
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{flexGrow:1,justifyContent:desktop?'center':'flex-start',alignItems:'center',padding:desktop?36:0}}>
@@ -48,7 +48,7 @@ export function LoginScreen(){
     else if(mode==='password'){await authService.password(email,password,remember);setPassword('');router.replace(next as any);}
     else if(target){await authService.verifyOtp(mode==='phone'?'phone':'email',target,code);router.replace(next as any);}else await send();});}
   const forgot=mode==='forgot',otp=mode!=='password'&&!forgot;
-  return <AuthShell title={forgot?'ลืมรหัสผ่าน':target?'ยืนยันตัวตน':'ยินดีต้อนรับกลับ'} subtitle={forgot?'รับลิงก์ตั้งรหัสผ่านใหม่ทางอีเมล':target?'อีกนิดเดียวก็พร้อมบันทึกแล้ว':'เก็บทุกการใช้จ่ายไว้ในที่เดียว'}>
+  return <AuthShell title={forgot?'ลืมรหัสผ่าน':target?'ยืนยันตัวตน':'ยินดีต้อนรับกลับ'} subtitle={forgot?'รับลิงก์ตั้งรหัสผ่านใหม่ทางอีเมล':target?'อีกนิดเดียวก็พร้อมบันทึกแล้ว':'เก็บทุกยอดที่ใช้ไปไว้ในที่เดียว'}>
     {!state.configured&&<View style={{padding:12,borderRadius:12,backgroundColor:'#f3f5ff'}}><T style={{fontSize:12,color:C.muted}}>ยังไม่ได้เชื่อมระบบล็อกอิน ลองข้อมูลตัวอย่างได้ด้านล่าง</T></View>}
     {!forgot&&!target&&<Choices segmented value={mode} onChange={switchMode} items={[{id:'password',name:'รหัสผ่าน'},{id:'email',name:'OTP อีเมล'},{id:'phone',name:'เบอร์โทร'}]}/>}
     <Form onSubmit={submit}>

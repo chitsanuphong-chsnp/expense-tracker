@@ -64,8 +64,8 @@ describe('money and reports',()=>{
     expect(dueReportPeriods(new Date('2026-10-06T08:00:00+07:00')).filter(p=>p.kind==='day')).toHaveLength(7);
     const periods=dueReportPeriods(new Date('2026-10-01T08:00:00+07:00'));expect(periods.some(p=>p.key==='month:2026-09')).toBe(true);
     expect(dueReportPeriods(new Date('2026-10-05T08:00:00+07:00')).some(p=>p.key==='week:2026-09-28')).toBe(true);
-    for(const t of ['23:35','23:55','00:00','00:30','06:30','06:35'])expect(shouldScan(new Date(`2026-10-05T${t}:00+07:00`))).toBe(true);
-    for(const t of ['23:30','00:35','06:25','06:40','07:05','12:00'])expect(shouldScan(new Date(`2026-10-05T${t}:00+07:00`))).toBe(false);
+    for(const t of ['23:35','23:55','00:00','00:04'])expect(shouldScan(new Date(`2026-10-05T${t}:00+07:00`))).toBe(true);
+    for(const t of ['23:30','00:05','00:30','06:30','07:05','12:00'])expect(shouldScan(new Date(`2026-10-05T${t}:00+07:00`))).toBe(false);
   });
   it('validates destination accounts and escapes CSV formulas',()=>{
     expect(transactionInput.safeParse(tx({kind:'transfer',to_account_id:account})).success).toBe(false);

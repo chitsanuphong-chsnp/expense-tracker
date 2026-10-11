@@ -98,3 +98,8 @@ Patched image processing to sharp 0.35.5 and tests to Vitest 5.0.3. The installe
 - `005_own_identity.sql` also adds `accounts.numbers` (max 3 full account/PromptPay numbers, digits only). Masked slip numbers are matched digit-by-digit (at least three visible digits) before names: recipient match → likely own transfer and preselected destination; sender match → source account (separates MAKE and K-PLUS on one bank).
 - When a month name is unreadable, the date is filled from the upload day or the day before only if day number and year match; it is labelled for review. Re-parsing the same 16 real slips: amount 16/16, date/time 16/16 (2 filled from the upload day), sender number 13/16 (three ttb bill payments unreadable, fall back to the source mapping). 86 tests.
 
+## 11 Oct 2026: scheduled ticks only, immediate sync
+- `supabase/schedule.sql` replaces the every-5-minute dispatcher (288 calls a day) with four jobs, 8 calls a day: 23:35–00:00 every 5 min, 08:00, 08:05 (no backup scan for now) (Bangkok). Rerunnable; removes `expense-dispatch`. A test expands the cron fields from the file and checks every call against `shouldScan`/`dueReportPeriods`, including deliveries 4 minutes late.
+- "ซิงก์ตอนนี้" runs the import immediately (60 s budget per call, up to 10 calls) under the shared tick lease; reports busy instead of overlapping a scheduled run; refused for non-Drive-owner accounts (API tests).
+- Failed jobs keep the existing backoff and retry at the next scheduled call; missed reports still catch up 7 days. pg_cron itself is not available in PGlite, so the SQL runs untested until Supabase.
+

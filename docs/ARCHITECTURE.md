@@ -5,7 +5,7 @@ flowchart LR
     A[iPhone Photos / 4 albums] --> B[Shortcuts 23:30]
     B --> C[Existing Apps Script]
     C --> D[Drive / bank / upload date]
-    E[Supabase Cron every 5 min] --> F[Vercel protected dispatcher]
+    E[Supabase Cron at set times] --> F[Vercel protected dispatcher]
     F --> G[DB job leases + scan checkpoints]
     G --> D
     D --> H[Local QR decoding]
@@ -28,7 +28,7 @@ The v1 service account is bound to `DRIVE_OWNER_ID`. Source configuration, image
 
 ## Durable work
 
-Supabase Cron dispatches every 5 minutes. Only due scan/report work is enqueued. A six-minute global lease serializes overlapping ticks beyond Vercel's maximum function duration; four-minute per-job leases recover crashes. Each claim has a token; completion only updates a matching lease. Dispatcher uses a 205-second budget, leaves at least 30 seconds before starting another task and checkpoints scan pages, rechecking remaining time between files. Supabase requests have 15-second timeouts. Work never depends on a process running after the HTTP response.
+Supabase Cron calls the dispatcher only at set Bangkok times (8 a day): 23:35–00:00 every 5 minutes for the scan after the 23:30 upload, 08:00 reports and an 08:05 retry round; `tests/schedule.test.ts` checks `schedule.sql` against `shouldScan`/`dueReportPeriods`. Only due scan/report work is enqueued. The app's sync button enqueues a scan and runs the same dispatcher at once with a 60-second budget, calling again while import jobs remain; it shares the tick lease, so it never overlaps a scheduled run. A six-minute global lease serializes overlapping ticks beyond Vercel's maximum function duration; four-minute per-job leases recover crashes. Each claim has a token; completion only updates a matching lease. Dispatcher uses a 205-second budget, leaves at least 30 seconds before starting another task and checkpoints scan pages, rechecking remaining time between files. Supabase requests have 15-second timeouts. Work never depends on a process running after the HTTP response.
 
 Scan traverses bank folders recursively using paginated folder listings. It maintains a persisted queue/page token and discovers date subfolders without assuming transaction date. File ID upserts are idempotent; even existing slip rows get the same QR job key, recovering insert-before-enqueue crashes. Subsequent scans list folders for new files but do not process completed images again. One source changed while a scan is running can briefly yield old-source metadata; retrying scan discovers the configured source. Personal volume is the initial target.
 

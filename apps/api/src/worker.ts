@@ -78,8 +78,8 @@ async function sendReport(owner:string,period:any) {
   }catch(e){await db.from('reports').update({status:'retry',error_code:safeCode(e)}).eq('id',report.id).eq('owner_id',owner);throw e;}
 }
 export function safeCode(e:unknown) { const m=e instanceof Error?e.message:'';return /^[A-Z][A-Z0-9_]{1,60}$/.test(m)?m:'PROCESSING_FAILED'; }
-async function tickUnlocked(now:Date) {
-  const db=admin(),deadline=Date.now()+205000;const profiles=checked(await db.from('profiles').select('id,reporting_started_at'))??[];
+async function tickUnlocked(now:Date,budgetMs:number) {
+  const db=admin(),deadline=Date.now()+budgetMs;const profiles=checked(await db.from('profiles').select('id,reporting_started_at'))??[];
   for(const profile of profiles) {
     if(shouldScan(now))for(const source of await (async()=>checked(await db.from('drive_sources').select('*').eq('owner_id',profile.id)))()??[]) {
       const p=bangkokParts(now);await enqueueScan(profile.id,source,`scan:${source.id}:${p.date}:${p.hour}:${Math.floor(p.minute/5)}`);
@@ -92,7 +92,9 @@ async function tickUnlocked(now:Date) {
     }
   }
   let processed=0;
-  while(Date.now()<deadline-(ocrEnabled()?120000:30000)) {
+  // Leave room for the job in hand; short manual runs keep the 30s margin even with local OCR.
+  const margin=ocrEnabled()&&budgetMs>=180000?120000:30000;
+  while(Date.now()<deadline-margin) {
     const job=(checked(await db.rpc('claim_job'))??[])[0];if(!job)break;
     try {
       const done=job.kind==='scan'?await scan(job.owner_id,job.payload.source_id,deadline):job.kind==='qr'?(await qr(job.owner_id,job.payload.slip_id),true):(await sendReport(job.owner_id,job.payload),true);
@@ -106,8 +108,13 @@ async function tickUnlocked(now:Date) {
   }
   return {processed};
 }
-export async function tick(now=new Date()) {
+// Scheduled ticks get the full Vercel budget; a manual run from the app returns sooner and the app calls again while work remains.
+export async function tick(now=new Date(),budgetMs=205000) {
   const db=admin(),token=checked(await db.rpc('acquire_tick'));
   if(!token)return {processed:0,busy:true};
-  try{return await tickUnlocked(now);}finally{checked(await db.rpc('release_tick',{p_token:token}));}
+  try{return await tickUnlocked(now,budgetMs);}finally{checked(await db.rpc('release_tick',{p_token:token}));}
+}
+export async function pendingImportJobs(owner:string) {
+  const r=await admin().from('jobs').select('id',{count:'exact',head:true}).eq('owner_id',owner).in('kind',['scan','qr']).in('status',['pending','running']);
+  checked(r);return r.count??0;
 }

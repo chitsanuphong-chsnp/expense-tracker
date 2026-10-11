@@ -66,6 +66,10 @@ QR ใช้ระบุธนาคาร เลขอ้างอิง แล
 
 ตั้งค่า → "เลขบัญชีบนสลิป" (เลขเต็มหรือพร้อมเพย์ของแต่ละบัญชี) และ "ชื่อของฉันบนสลิป" ระบบเทียบเลขที่ปิดบางส่วนในสลิปก่อน แล้วใช้ชื่อเป็นตัวสำรอง ถ้าผู้รับตรงกับบัญชีหรือชื่อของคุณ แอปจะแนะนำว่าเป็นการโอนระหว่างบัญชี (ฟอร์มเลือก "โอน" ไว้ให้) และไม่นับในร่างยอดใช้ไปของ LINE เป็นเพียงคำใบ้ เพราะสลิปปิดนามสกุลบางส่วน ผู้ใช้ยืนยันเองทุกครั้ง เลขผู้โอนในสลิปยังใช้เลือกบัญชีต้นทางให้ (MAKE กับ K-PLUS แยกได้แม้เป็นธนาคารเดียวกัน) ถ้า OCR อ่านชื่อเดือนไม่ได้แต่อ่านวัน ปี และเวลาได้ และวันตรงกับวันอัปโหลด (หรือวันก่อนหน้า) จะเติมเดือน/ปีจากวันอัปโหลดพร้อมป้ายให้ตรวจ ต้องรัน `005_own_identity.sql` ก่อน
 
+## การทำงานประจำวัน
+
+เวลาไหนทำอะไร (Cron, OCR, LINE) และรหัสลับอยู่ที่ไหน ดู [docs/DAILY-FLOW.md](docs/DAILY-FLOW.md)
+
 ## ตรวจ migration
 
 วาง [supabase/check-migrations.sql](supabase/check-migrations.sql) ใน Supabase SQL Editor ทุกแถวต้องได้ `ok = true` ไฟล์นี้อ่านอย่างเดียว ไม่แก้ข้อมูล
@@ -77,7 +81,7 @@ apps/app/                    React Native, Expo Router, UI และ PWA
 apps/api/                    Hono Node.js API / Vercel Function
 packages/core/               ชนิดข้อมูล ยอดสตางค์ ช่วงเวลาไทย CSV
 supabase/migrations/         PostgreSQL, RLS, RPC แบบ atomic, คิว/lease
-supabase/schedule.sql        Supabase Cron เรียก API ทุก 5 นาที
+supabase/schedule.sql        Supabase Cron เรียก API เฉพาะเวลาที่ตั้งไว้ (8 ครั้ง/วัน)
 supabase/check-migrations.sql ตรวจว่ารัน migration ครบ (อ่านอย่างเดียว)
 services/ocr/                Paddle OCR (Python) สำหรับเครื่อง dev
 integrations/apps-script/    สัญญาการอัปโหลดเดิม + ตัวอย่างอ้างอิง

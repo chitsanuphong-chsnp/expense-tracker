@@ -74,7 +74,7 @@ npm run dev
 4. เข้าแต่ละโฟลเดอร์ เช่น `Expense/slips/ttb` แล้วคัดลอกส่วนหลัง `/folders/` จาก URL เป็น folder ID
 5. ในแอป → ตั้งค่า → แหล่งสลิป ใส่ ID ของโฟลเดอร์ธนาคาร ไม่ใช้ ID ของโฟลเดอร์วันที่
 6. เลือกบัญชีเงินจริงที่แต่ละแหล่งใช้ ถ้า MAKE/K-PLUS เป็นบัญชีเดียวกัน ให้เลือกบัญชีเดียวกัน
-7. กด **ตรวจ Drive รอบถัดไป** งานจะเข้าคิว รอ tick ครั้งต่อไป หน้า UI จะแสดงสถานะตรวจและสลิป
+7. กด **ซิงก์ตอนนี้** ในหน้าตั้งค่า ระบบเริ่มสแกนและอ่าน QR ทันที ไม่ต้องรอ Cron แอปเรียกต่อเองจนงานหมด (สูงสุด 10 รอบ) ถ้ารอบตั้งเวลากำลังทำงานอยู่ แอปจะแจ้งและไม่ทำงานซ้อน
 
 รอบแรกไล่โฟลเดอร์/หน้ารายการเดิมทั้งหมด มี checkpoint รอบถัดไปตรวจหาไฟล์เพิ่ม แต่ไม่อ่าน QR ของไฟล์ที่ทำเสร็จแล้วซ้ำ ไฟล์ใหญ่กว่า 12 MB หรือภาพเกิน 24 ล้านพิกเซลจะถูกปฏิเสธและแสดงงานผิดพลาด ให้คงการย่อ JPEG อัตโนมัติใน Shortcuts เดิม
 
@@ -128,24 +128,33 @@ Flex รายวัน/สัปดาห์/เดือนมีรูปน�
 
 LINE เก็บ retry key 24 ชั่วโมง หากงานขาดช่วงนานเกิน 23 ชั่วโมงหลังเริ่มส่ง ระบบหยุดส่งอัตโนมัติด้วย `LINE_DELIVERY_UNKNOWN` เพื่อหลีกเลี่ยงข้อความซ้ำ ให้ตรวจประวัติใน LINE และฐานข้อมูลก่อนตัดสินใจส่งใหม่
 
-## 6. Supabase Cron ทุก 5 นาที
+## 6. Supabase Cron ตามเวลาที่ตั้งไว้ (8 ครั้ง/วัน)
 
 ไม่ตั้ง Vercel Cron ใน repo นี้ ใช้ Supabase Cron เป็นตัวเรียก API; API เลือกงานที่ถึงเวลาเอง
 
 1. ไป Supabase → Integrations / Database → Vault เพิ่ม secret สองชื่อ:
    - `expense_api_url`: URL Backend ไม่มี `/` ท้าย
    - `expense_cron_secret`: ค่าเดียวกับ CRON_SECRET ใน Backend
-2. ใน SQL Editor รัน `supabase/schedule.sql` ตรวจว่ามี job `expense-dispatch` หนึ่งรายการ
+2. ใน SQL Editor รัน `supabase/schedule.sql` (รันซ้ำได้ ลบ job `expense-dispatch` แบบทุก 5 นาทีเดิมให้เอง) ผลท้ายไฟล์ต้องมี 4 job:
+
+   | job | cron (UTC) | เวลาไทย | ทำอะไร |
+   |---|---|---|---|
+   | `expense-tick-scan-night` | `35-55/5 16 * * *` | 23:35–23:55 ทุก 5 นาที | สแกน Drive + QR หลังมือถืออัปโหลด 23:30 |
+   | `expense-tick-scan-midnight` | `0 17 * * *` | 00:00 | รอบสุดท้ายของคืน (แยกแถวเพราะข้ามชั่วโมง) |
+   | `expense-tick-report` | `0 1 * * *` | 08:00 | Flex รายวัน / จันทร์ +สัปดาห์ / วันที่ 1 +เดือน |
+   | `expense-tick-report-retry` | `5 1 * * *` | 08:05 | ลองส่งรายงานที่ล้มเหลวอีกรอบ |
+
+   นอกเวลาเหล่านี้ Cron ไม่เรียก API เลย OCR อยู่บน GitHub Actions (ข้อ 6.1)
 3. ใน Cron dashboard ตรวจ run history และตรวจ HTTP response เพิ่ม เพราะสถานะ Cron สำเร็จอาจหมายถึงส่ง HTTP request เข้าคิวแล้ว ยังไม่ใช่ worker สำเร็จ
 
 ```sql
-select jobname, schedule, active from cron.job;
+select jobname, schedule, active from cron.job where jobname like 'expense-%';
 select start_time, status, return_message from cron.job_run_details order by start_time desc limit 10;
 select id, status_code, timed_out, error_msg from net._http_response order by id desc limit 10;
 select kind, status, error_code, attempts, next_run_at from public.jobs order by created_at desc limit 30;
 ```
 
-ตรวจ Drive ช่วง 23:35–00:30 ทุก 5 นาที (หลังมือถืออัปโหลด 23:30) และรอบสำรอง 06:30–06:35 ซึ่งเพิ่มเฉพาะไฟล์ที่รอบหลักยังไม่เจอ งานที่มีคิวค้าง retry และรายงานที่ตกค้างยังทำต่อใน tick รอบอื่นได้ global lease หมดอายุหลัง 6 นาที (นานกว่า timeout ของ Vercel) และ job lease หลัง 4 นาที รายงานวันย้อนหลัง catch up สูงสุด 7 วัน เฉพาะช่วงหลังเริ่มบัญชี
+ถ้า Cron ส่งช้าไปไม่กี่นาที API ยังสแกน (ช่วงรับ 23:35–00:04) งานที่ล้มเหลว เช่น ส่ง LINE ไม่สำเร็จ จะลองใหม่ในรอบตั้งเวลาถัดไป (08:05 แล้วรอบกลางคืน) รายงานที่ไม่ได้ส่งเพราะไม่มีรอบทำงานจะส่งย้อนหลังในรอบ 08:00 ถัดไป global lease หมดอายุหลัง 6 นาที (นานกว่า timeout ของ Vercel) และ job lease หลัง 4 นาที รายงานวันย้อนหลัง catch up สูงสุด 7 วัน เฉพาะช่วงหลังเริ่มบัญชี
 
 เมื่อ deploy และ Cron พร้อม ปิดคอมและแอปได้ งานรันบน Cloud ทดสอบจริงด้วยการอัปโหลดสลิป ดูสถานะนำเข้าและรับ LINE หนึ่งรอบก่อนใช้ประจำ
 

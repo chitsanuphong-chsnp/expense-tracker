@@ -120,9 +120,10 @@ export function dueReportPeriods(now = new Date()) {
   return result;
 }
 export function shouldScan(now = new Date()) {
-  // Phone uploads at 23:30. Main scan until 00:30; 06:30 backup only finds files the main scan missed.
+  // Matches supabase/schedule.sql: 23:35–00:00 every 5 min after the 23:30 upload.
+  // Windows run a few minutes past the last call so a late cron delivery still scans.
   const p = bangkokParts(now), m = p.hour * 60 + p.minute;
-  return m >= 23 * 60 + 35 || m <= 30 || (m >= 6 * 60 + 30 && m < 6 * 60 + 40);
+  return m >= 23 * 60 + 35 || m < 5;
 }
 export function transactionsCsv(rows: Transaction[], accounts: Account[], categories: Category[]) {
   const field = (s: string) => `"${(/^[=+\-@\t\r\n]|^\s+[=+\-@]/.test(s) ? "'" : '') + s.replace(/"/g,'""')}"`;

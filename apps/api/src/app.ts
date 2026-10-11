@@ -7,7 +7,7 @@ import sharp from 'sharp';
 import { transactionInput,summarize,transactionsCsv,sourceCodes } from '@expense/core';
 import { admin,configured,checked,dataset,userDb,rows } from './db.ts';
 import { signatureValid } from './line.ts';
-import { tick,enqueueScan } from './worker.ts';
+import { tick,enqueueScan,pendingImportJobs } from './worker.ts';
 import { downloadFile,assertDriveOwner } from './drive.ts';
 import type {User} from '@supabase/supabase-js';
 import {verifiedUser,accountInfo} from './auth-user.ts';
@@ -15,6 +15,10 @@ import {verifiedUser,accountInfo} from './auth-user.ts';
 type Env={Variables:{owner:string;token:string;user:User}};
 const uuid=z.string().uuid();
 function secureEqual(a:string,b:string) { const aa=Buffer.from(a),bb=Buffer.from(b);return aa.length===bb.length&&timingSafeEqual(aa,bb); }
+async function runImportNow(owner:string) {
+  const result=await tick(new Date(),60000);
+  return {...result,pending:await pendingImportJobs(owner)};
+}
 export function createApp() {
   const app=new Hono<Env>();
   app.use('/api/*',async(c,next)=>{c.header('Cache-Control','no-store');await next();});
@@ -120,8 +124,16 @@ app.get('/api/slips/:id/image',async c=>{
   });
   app.post('/api/sync',async c=>{
     const db=admin(),owner=c.get('owner');const sources=checked(await db.from('drive_sources').select('*').eq('owner_id',owner))??[];
+    if(!process.env.DRIVE_OWNER_ID||owner!==process.env.DRIVE_OWNER_ID)return c.json({error:'DRIVE_NOT_ENABLED_FOR_ACCOUNT'},403);
+    // Same 5-minute key as before: repeated presses reuse the queued scan.
     for(const source of sources)await enqueueScan(owner,source,`manual:${source.id}:${Math.floor(Date.now()/300000)}`);
-    return c.json({queued:sources.length});
+    return c.json({queued:sources.length,...await runImportNow(owner)});
+  });
+  // Continues a manual import. The shared tick lease keeps it from overlapping a scheduled run.
+  app.post('/api/sync/run',async c=>{
+    const owner=c.get('owner');
+    if(!process.env.DRIVE_OWNER_ID||owner!==process.env.DRIVE_OWNER_ID)return c.json({error:'DRIVE_NOT_ENABLED_FOR_ACCOUNT'},403);
+    return c.json(await runImportNow(owner));
   });
   app.put('/api/sources/:code',async c=>{
     if(!process.env.DRIVE_OWNER_ID||c.get('owner')!==process.env.DRIVE_OWNER_ID)return c.json({error:'DRIVE_NOT_ENABLED_FOR_ACCOUNT'},403);

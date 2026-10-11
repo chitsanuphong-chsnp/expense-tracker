@@ -8,7 +8,7 @@ import { transactionInput,summarize,transactionsCsv,sourceCodes,thaiDate,rangeFo
 import { admin,configured,checked,dataset,userDb,rows } from './db.ts';
 import { signatureValid,pushReport } from './line.ts';
 import { decodeQr } from './qr.ts';
-import { tick,enqueueScan,pendingImportJobs,importProgress,cancelImport } from './worker.ts';
+import { tick,enqueueScan,pendingImportJobs,importProgress,cancelImport,autoSaveSlip,autoSavePending } from './worker.ts';
 import { downloadFile,assertDriveOwner } from './drive.ts';
 import type {User} from '@supabase/supabase-js';
 import {verifiedUser,accountInfo} from './auth-user.ts';
@@ -81,6 +81,11 @@ export function createApp() {
     const result=await userDb(c.get('token')).rpc('save_transaction',{p_id:id,p_data:input,p_slip_id:slipId});
     if(result.error)return c.json({error:'INVALID_TRANSACTION_OR_LINK'},400);return c.json({id:result.data});
   });
+  // "ตรวจแล้ว" for an automatically saved transaction.
+  app.post('/api/transactions/:id/reviewed',async c=>{
+    const r=await userDb(c.get('token')).rpc('mark_reviewed',{p_id:uuid.parse(c.req.param('id'))});
+    if(r.error)checked(r);return c.json({ok:true});
+  });
   app.delete('/api/transactions/:id',async c=>{
     const r=await userDb(c.get('token')).rpc('delete_transaction',{p_id:uuid.parse(c.req.param('id'))});
     if(r.error)return c.json({error:'NOT_FOUND'},404);return c.json({ok:true});
@@ -130,7 +135,9 @@ export function createApp() {
       const key=Math.floor(Date.now()/300000);
       for(let start=0;start<pending.length;start+=100)checked(await db.from('jobs').upsert(pending.slice(start,start+100).map((s:any)=>({owner_id:owner,job_key:`ocr-backfill:${s.id}:${key}`,kind:'qr',payload:{slip_id:s.id}})),{onConflict:'owner_id,job_key',ignoreDuplicates:true}));
     }
-    return c.json({queued:chosen.length,...await runImportNow(owner)});
+    // Earlier slips that already have a readable draft are saved now too.
+    const saved=await autoSavePending(owner);
+    return c.json({queued:chosen.length,auto_saved:saved,...await runImportNow(owner)});
   });
   app.post('/api/sync/cancel',async c=>c.json({cancelled:await cancelImport(c.get('owner'))}));
   // Polled by the app's progress bar while an import runs (read only).
@@ -159,7 +166,9 @@ export function createApp() {
     const now=new Date().toISOString(),ocr=ocrEnabled()?await slipOcrDraft(bytes,body.source_code,1,now):null;
     const slip=checked(await db.from('slips').insert({owner_id:owner,source_code:body.source_code,origin:'upload',name:'อัปโหลดจากแอป',uploaded_at:now,
       status:qr.payload?'needs_details':'qr_unreadable',image_hash:qr.hash,qr_payload:qr.payload,qr_key:qr.key,ocr_details:ocr}).select('id').single());
-    return c.json({duplicate:false,slip_id:slip!.id},201);
+    // Saved right away when the amount was read; the app then opens it for a check.
+    const transaction=await autoSaveSlip(owner,slip!.id);
+    return c.json({duplicate:false,slip_id:slip!.id,transaction_id:transaction},201);
   });
   app.put('/api/sources/:code',async c=>{
     if(!process.env.DRIVE_OWNER_ID||c.get('owner')!==process.env.DRIVE_OWNER_ID)return c.json({error:'DRIVE_NOT_ENABLED_FOR_ACCOUNT'},403);

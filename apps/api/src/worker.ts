@@ -1,9 +1,10 @@
 import {ocrEnabled,slipOcrDraft} from './ocr.ts';
-import { admin,checked,dataset } from './db.ts';
+import { randomUUID } from 'node:crypto';
+import { admin,checked,dataset,rows } from './db.ts';
 import { listFolder,downloadFile,assertDriveOwner } from './drive.ts';
 import { decodeQr } from './qr.ts';
 import { flexReport,pushReport } from './line.ts';
-import { shouldScan,dueReportPeriods,summarize,bangkokParts,dailyPendingWindow,thaiDate } from '@expense/core';
+import { shouldScan,dueReportPeriods,summarize,bangkokParts,dailyPendingWindow,thaiDate,autoTransaction } from '@expense/core';
 
 export type ScanRange={from:string;to:string};
 export async function enqueueScan(owner:string,source:any,key:string,range:ScanRange) {
@@ -59,8 +60,29 @@ async function qr(owner:string,id:string) {
     if(latest&&latest.status!=='duplicate'&&!latest.transaction_id){
       const draft=await slipOcrDraft(bytes,slip.source_code,1,new Date(slip.uploaded_at).toISOString());
       checked(await db.from('slips').update({ocr_details:draft}).eq('id',id).eq('owner_id',owner).is('transaction_id',null).neq('status','duplicate'));
+      await autoSaveSlip(owner,id);
     }
   }
+}
+// Saves a slip's OCR draft as a transaction marked "needs review" when the amount was read and an account is known
+// (see autoTransaction). Slips it cannot save stay "รอกรอกข้อมูล". Returns the new transaction id, or null.
+export async function autoSaveSlip(owner:string,slipId:string):Promise<string|null> {
+  const db=admin();
+  const slip=checked(await db.from('slips').select('id,source_id,source_code,uploaded_at,ocr_details,transaction_id,status').eq('owner_id',owner).eq('id',slipId).maybeSingle());
+  if(!slip||slip.transaction_id||slip.status==='duplicate'||!slip.ocr_details||slip.ocr_details.error)return null;
+  const source=checked(await (slip.source_id?db.from('drive_sources').select('account_id').eq('owner_id',owner).eq('id',slip.source_id):db.from('drive_sources').select('account_id').eq('owner_id',owner).eq('source_code',slip.source_code)).maybeSingle());
+  const [accounts,rules]=await Promise.all([rows(db,'accounts',owner),rows(db,'category_rules',owner)]);
+  const input=autoTransaction(slip,source?.account_id??null,accounts,rules);
+  if(!input)return null;
+  // Before migration 007 is run the function is missing: keep the slip pending (old behaviour) instead of failing the import.
+  try{return checked(await db.rpc('auto_save_slip',{p_owner:owner,p_slip_id:slip.id,p_id:randomUUID(),p_data:input}));}
+  catch(e){if(e instanceof Error&&e.message==='MIGRATION_REQUIRED')return null;throw e;}
+}
+// Earlier slips still waiting with a readable draft (e.g. imported before auto-save existed).
+export async function autoSavePending(owner:string) {
+  const pending=(await rows(admin(),'slips',owner)).filter((s:any)=>!s.transaction_id&&s.status!=='duplicate'&&s.ocr_details&&!s.ocr_details.error&&s.ocr_details.amount_satang>0);
+  let saved=0;for(const s of pending)if(await autoSaveSlip(owner,s.id))saved++;
+  return saved;
 }
 async function sendReport(owner:string,period:any) {
   const db=admin();const connection=checked(await db.from('line_connections').select('*').eq('owner_id',owner).maybeSingle());

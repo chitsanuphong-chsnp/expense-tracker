@@ -5,7 +5,7 @@ import {AppState,Platform} from 'react-native';
 import {supabase,authService} from './auth-client';
 // Thai text for API error codes; callers can still check error.code.
 const apiErrors:Record<string,string>={
-  MIGRATION_REQUIRED:'ฐานข้อมูลยังไม่อัปเดต รัน migration ล่าสุด (005, 006) ใน Supabase SQL Editor แล้วลองใหม่',
+  MIGRATION_REQUIRED:'ฐานข้อมูลยังไม่อัปเดต รัน migration ล่าสุด (005, 006, 007) ใน Supabase SQL Editor แล้วลองใหม่',
   DRIVE_NOT_ENABLED_FOR_ACCOUNT:'บัญชีนี้ยังไม่ได้ตั้งเป็นเจ้าของ Drive (DRIVE_OWNER_ID ใน Vercel)',
   DRIVE_NOT_CONFIGURED:'ยังไม่ได้ตั้งค่า Google Drive ใน Vercel',LINE_NOT_CONNECTED:'ยังไม่ได้เชื่อม LINE',
   OCR_NOT_CONFIGURED:'ยังไม่เปิด OCR (OCR_ENABLED ใน Vercel)',IMPORT_RUNNING:'กำลังนำเข้าสลิปอยู่ รอสักครู่แล้วลองใหม่',
@@ -26,7 +26,11 @@ function demoData():Dataset {
   for(let day=6;day>=0;day--){const date=thaiDate(new Date(new Date(`${today}T12:00:00+07:00`).getTime()-day*86400000));
     for(let i=0;i<3;i++)transactions.push({id:newId(),kind:'expense',amount_satang:[8500,6500,12000][i]+day*1200,account_id:accounts[(day+i)%5].id,to_account_id:null,category_id:categories[i].id,occurred_at:new Date(`${date}T${['09','12','18'][i]}:30:00+07:00`).toISOString(),note:['มื้อเช้า','กาแฟและเครื่องดื่ม','เดินทางกลับบ้าน'][i],counterparty:['ร้านอาหาร','ร้านกาแฟ','รถโดยสาร'][i],source:'manual'});
   }
-  return {...empty,accounts,categories,transactions,slips:[{id:newId(),source_code:'ttb',status:'needs_details',uploaded_at:new Date(`${today}T20:00:00+07:00`).toISOString(),transaction_id:null,qr_payload:'ตัวอย่าง QR · ยังไม่มียอดธุรกรรม',duplicate_of:null,error_code:null,drive_file_id:'demo-slip',name:'สลิปตัวอย่างรอกรอกยอด'},{id:newId(),source_code:'kplus',status:'qr_unreadable',uploaded_at:new Date(`${today}T19:00:00+07:00`).toISOString(),transaction_id:null,qr_payload:null,duplicate_of:null,error_code:'QR_NOT_FOUND',drive_file_id:'demo-slip-2',name:'สลิปตัวอย่าง QR ไม่ชัด'}]};
+  // A slip saved automatically (waiting for a check) and a transfer between own accounts.
+  const autoId=newId(),autoSlip=newId();
+  transactions.push({id:autoId,kind:'expense',amount_satang:15900,account_id:accounts[1].id,to_account_id:null,category_id:null,occurred_at:new Date(`${today}T08:15:00+07:00`).toISOString(),note:'',counterparty:'ร้านกาแฟหน้าออฟฟิศ',source:'auto',needs_review:true});
+  transactions.push({id:newId(),kind:'transfer',amount_satang:300000,account_id:accounts[0].id,to_account_id:accounts[3].id,category_id:null,occurred_at:new Date(`${today}T07:30:00+07:00`).toISOString(),note:'',counterparty:'',source:'manual'});
+  return {...empty,accounts,categories,transactions,slips:[{id:autoSlip,source_code:'kplus',status:'linked',uploaded_at:new Date(`${today}T08:20:00+07:00`).toISOString(),transaction_id:autoId,qr_payload:'ตัวอย่าง QR',duplicate_of:null,error_code:null,drive_file_id:'demo-auto',name:'สลิปตัวอย่างบันทึกอัตโนมัติ'},{id:newId(),source_code:'ttb',status:'needs_details',uploaded_at:new Date(`${today}T20:00:00+07:00`).toISOString(),transaction_id:null,qr_payload:'ตัวอย่าง QR · ยังไม่มียอดธุรกรรม',duplicate_of:null,error_code:null,drive_file_id:'demo-slip',name:'สลิปตัวอย่างรอกรอกยอด'},{id:newId(),source_code:'kplus',status:'qr_unreadable',uploaded_at:new Date(`${today}T19:00:00+07:00`).toISOString(),transaction_id:null,qr_payload:null,duplicate_of:null,error_code:'QR_NOT_FOUND',drive_file_id:'demo-slip-2',name:'สลิปตัวอย่าง QR ไม่ชัด'}]};
 }
 type State={data:Dataset;loading:boolean;error:string;demo:boolean;session:Session|null;recovery:boolean;finishRecovery:()=>void;ready:boolean;configured:boolean;refresh:()=>Promise<void>;startDemo:()=>Promise<void>;signIn:(email:string,password:string)=>Promise<void>;signOut:()=>Promise<void>;save:(id:string,input:TransactionInput,slip?:string)=>Promise<void>;remove:(id:string)=>Promise<void>;link:(slip:string,transaction:string)=>Promise<void>;call:(path:string,method?:string,body?:unknown,options?:{timeoutMs?:number;signal?:AbortSignal})=>Promise<any>;updateLocal:(fn:(d:Dataset)=>Dataset)=>void;image:(id:string)=>Promise<string>};
 const Context=createContext<State>(null!);

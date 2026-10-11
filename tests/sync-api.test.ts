@@ -1,18 +1,18 @@
 import {it,expect,vi,beforeEach,afterEach} from 'vitest';
-const {getUser,tick,enqueueScan,pendingImportJobs,importProgress,cancelImport}=vi.hoisted(()=>({getUser:vi.fn(),tick:vi.fn(),enqueueScan:vi.fn(),pendingImportJobs:vi.fn(),importProgress:vi.fn(),cancelImport:vi.fn()}));
+const {getUser,tick,enqueueScan,pendingImportJobs,importProgress,cancelImport,autoSavePending}=vi.hoisted(()=>({getUser:vi.fn(),tick:vi.fn(),enqueueScan:vi.fn(),pendingImportJobs:vi.fn(),importProgress:vi.fn(),cancelImport:vi.fn(),autoSavePending:vi.fn()}));
 const sources=[{id:'source-1',source_code:'ttb'},{id:'source-2',source_code:'kplus'}];
 vi.mock('../apps/api/src/db.ts',async importOriginal=>({...await importOriginal<typeof import('../apps/api/src/db.ts')>(),configured:()=>true,
   admin:()=>({auth:{getUser},from:()=>({select:()=>({eq:async()=>({data:sources,error:null})})})})}));
-vi.mock('../apps/api/src/worker.ts',()=>({tick,enqueueScan,pendingImportJobs,importProgress,cancelImport}));
+vi.mock('../apps/api/src/worker.ts',()=>({tick,enqueueScan,pendingImportJobs,importProgress,cancelImport,autoSavePending,autoSaveSlip:vi.fn()}));
 import {createApp} from '../apps/api/src/app';
 const user=(id:string)=>({id,email:'owner@example.com',email_confirmed_at:'2026-10-01T00:00:00Z',phone:'',is_anonymous:false,identities:[{provider:'email'}],user_metadata:{}});
 const post=(path:string,body?:unknown)=>createApp().request(path,{method:'POST',headers:{Authorization:'Bearer token','Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
-beforeEach(()=>{vi.stubEnv('DRIVE_OWNER_ID','owner-a');for(const f of [getUser,tick,enqueueScan,pendingImportJobs,importProgress,cancelImport])f.mockReset();pendingImportJobs.mockResolvedValue(3);});
+beforeEach(()=>{vi.stubEnv('DRIVE_OWNER_ID','owner-a');for(const f of [getUser,tick,enqueueScan,pendingImportJobs,importProgress,cancelImport,autoSavePending])f.mockReset();pendingImportJobs.mockResolvedValue(3);autoSavePending.mockResolvedValue(2);});
 afterEach(()=>vi.unstubAllEnvs());
 it('starts the import immediately with a short budget under the shared tick lease',async()=>{
   getUser.mockResolvedValue({data:{user:user('owner-a')},error:null});tick.mockResolvedValue({processed:4});
   const r=await post('/api/sync');expect(r.status).toBe(200);
-  expect(await r.json()).toEqual({queued:2,processed:4,pending:3});
+  expect(await r.json()).toEqual({queued:2,auto_saved:2,processed:4,pending:3});
   const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok'}).format(new Date());
   expect(enqueueScan).toHaveBeenCalledWith('owner-a',sources[0],expect.stringMatching(new RegExp(`^manual:source-1:${today}:${today}:\\d+$`)),{from:today,to:today});
   expect(tick).toHaveBeenCalledWith(expect.any(Date),60000,true);

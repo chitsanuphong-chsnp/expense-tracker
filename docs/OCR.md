@@ -24,7 +24,7 @@ OCR runs right after QR in each night scan, when "ดึงสลิปตอน
 2. Set `OCR_ENABLED=true`, `OCR_ENGINE=tesseract` in Vercel (or `apps/api/.env` locally) and redeploy/restart.
 3. Open Slips → "ดึงสลิปตอนนี้" (or "เลือกรูปสลิป"), then review each draft before saving.
 
-OCR never creates transactions. Account numbers and names only hint at own-account transfers; the owner confirms. No OCR text is bank verification. Model errors leave a retryable draft marker; QR results are kept.
+Since 11 Oct 2026 (owner's choice) a slip whose amount is read is saved automatically (`autoTransaction` in core, `auto_save_slip` in migration 007) and flagged `needs_review` until the owner checks it in the slip box; unreadable amounts stay pending. A recipient account number matching an own account makes a transfer; a name match is only a hint. No OCR text is bank verification. Model errors leave a retryable draft marker; QR results are kept.
 
 ## Backup plan: Paddle on GitHub Actions (manual)
 

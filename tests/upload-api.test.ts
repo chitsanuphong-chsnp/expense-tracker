@@ -16,7 +16,7 @@ beforeEach(()=>{state.existing=null;state.inserted=null;state.line=null;pushRepo
 const slipImage=async()=>(await QRCode.toBuffer(slipVerify({sendingBank:'004',transRef:'UPLOAD_REF_1'}),{width:500,margin:4})).toString('base64');
 it('creates an upload slip with QR keys and no Drive file or stored image',async()=>{
   const r=await post('/api/slips/upload',{source_code:'kplus',image:await slipImage()});
-  expect(r.status).toBe(201);expect(await r.json()).toEqual({duplicate:false,slip_id:'new-slip'});
+  expect(r.status).toBe(201);expect(await r.json()).toEqual({duplicate:false,slip_id:'new-slip',transaction_id:null});
   expect(state.inserted).toMatchObject({owner_id:'owner-a',source_code:'kplus',origin:'upload',status:'needs_details',qr_key:'004:UPLOAD_REF_1'});
   expect(state.inserted).not.toHaveProperty('drive_file_id');
   expect(state.filters).toContain('qr_key.eq.004:UPLOAD_REF_1');

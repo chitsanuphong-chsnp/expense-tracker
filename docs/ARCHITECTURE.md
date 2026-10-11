@@ -38,7 +38,7 @@ Job failures retry with exponential delays capped at 60 minutes, then become fai
 
 ## Reporting
 
-Amounts are integer satang; times are stored as UTC and report boundaries computed in Asia/Bangkok. Spending ("ใช้ไป") includes transfers between own accounts, counted on the source account; they appear uncategorized unless a category is set. Account charts show cash flow, not balances.
+Amounts are integer satang; times are stored as UTC and report boundaries computed in Asia/Bangkok. Spending ("ใช้ไป") is expenses only; transfers between own accounts are summed apart (`Summary.transfers`) and shown on their own home tile and Flex line. Slips with a read amount are saved automatically as `source='auto'`, `needs_review=true` (migration 007). Account charts show cash flow, not balances.
 
 Daily reports are sent at 08:00 for the full previous calendar day. Pending slips count when uploaded from 08:00 that day until 08:00 the report morning, so the 23:30 upload and late uploads are visible exactly once. Unreviewed OCR amounts are listed separately and never added to totals. OCR (Tesseract.js, models and wasm bundled in `dist/`) runs on Vercel right after QR in each night scan and from the app's buttons; PaddleOCR on GitHub Actions is a manual backup. The app records expenses and own-account transfers only; income is not offered. Weekly/monthly ranges include complete calendar periods. The daily LINE report is a cutoff snapshot; dashboard and in-app reports use latest entries/full day. Snapshot retry never recomputes or resends after manual corrections. UUID retry keys cover LINE's 24-hour window; uncertain older deliveries stop automatically. Database uniqueness on owner/report_key prevents another report record for the same period.
 

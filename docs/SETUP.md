@@ -160,7 +160,7 @@ select kind, status, error_code, attempts, next_run_at from public.jobs order by
 
 ## 6.1 OCR (Tesseract บน Vercel)
 
-รัน `supabase/migrations/005_own_identity.sql` และ `006_import_reset_manage.sql` ใน SQL Editor ก่อน (ช่อง "ชื่อของฉันบนสลิป" และ "เลขบัญชีบนสลิป") แล้วตรวจด้วย `supabase/check-migrations.sql`
+รัน `supabase/migrations/005_own_identity.sql`, `006_import_reset_manage.sql` และ `007_auto_save.sql` ใน SQL Editor ก่อน (007 = บันทึกอัตโนมัติจากสลิป) (ช่อง "ชื่อของฉันบนสลิป" และ "เลขบัญชีบนสลิป") แล้วตรวจด้วย `supabase/check-migrations.sql`
 
 1. Vercel → Backend project → Settings → Environment Variables ตั้ง `OCR_ENABLED=true` และ `OCR_ENGINE=tesseract` แล้ว redeploy
 2. ไม่ต้องตั้งอย่างอื่น: โมเดลภาษาไทย/อังกฤษและตัว OCR ถูกรวมไว้ใน `dist/` ตอน build ไม่ดาวน์โหลดตอนรัน

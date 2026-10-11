@@ -4,7 +4,7 @@ export const sourceCodes = ['ttb', 'kplus', 'krungthai', 'make'] as const;
 export type SourceCode = typeof sourceCodes[number];
 export type Account = { id: string; name: string; kind: 'bank' | 'cash'; bank_code: string | null; color: string; numbers?: string[] };
 export type Category = { id: string; name: string; color: string };
-export type Transaction = { id: string; kind: 'income' | 'expense' | 'transfer'; amount_satang: number; account_id: string; to_account_id: string | null; category_id: string | null; occurred_at: string; note: string; counterparty: string; source: 'manual' | 'qr'; created_at?: string };
+export type Transaction = { id: string; kind: 'income' | 'expense' | 'transfer'; amount_satang: number; account_id: string; to_account_id: string | null; category_id: string | null; occurred_at: string; note: string; counterparty: string; source: 'manual' | 'qr' | 'auto'; needs_review?: boolean; created_at?: string };
 export type OcrDraft = {engine:string;amount_satang:number|null;date:string|null;time:string|null;sender:string|null;recipient:string|null;requires_review:true;error?:string;attempts?:number;sender_account?:string|null;recipient_account?:string|null;date_source?:'upload'};
 export type SlipQrDetails = {format:'mini_qr'|'unrecognized';sending_bank_code:string|null;sending_bank_name:string|null;transaction_reference:string|null;country_code:string|null;checksum:string|null;tags:{path:string;value:string}[];missing:string[]};
 export type Slip = { id: string; source_code: SourceCode; status: 'queued' | 'processing' | 'needs_details' | 'qr_unreadable' | 'duplicate' | 'linked' | 'failed'; uploaded_at: string; transaction_id: string | null; qr_payload: string | null; qr_details?: SlipQrDetails | null; ocr_details?: OcrDraft | null; duplicate_of: string | null; error_code: string | null; drive_file_id: string | null; origin?: 'drive' | 'upload'; name?: string };
@@ -13,7 +13,7 @@ export type Settings = { budget_satang: number; line_connected: boolean; line_bl
 export type Dataset = { accounts: Account[]; categories: Category[]; transactions: Transaction[]; slips: Slip[]; sources: Source[]; settings: Settings; reports: Report[]; rules: Rule[] };
 export type Rule = { id: string; counterparty: string; category_id: string };
 export type Report = { id: string; report_key: string; status: string; period_start: string; period_end: string; snapshot: Summary; sent_at: string | null; error_code: string | null };
-export type Summary = { income: number; expense: number; net: number; count: number; byAccount: { id: string; name: string; expense: number; income: number; color: string }[]; byCategory: { id: string; name: string; expense: number; color: string }[]; pending: number; ocr_draft?: { amount_satang: number; slips: number; own_transfers?: number } };
+export type Summary = { income: number; expense: number; net: number; count: number; byAccount: { id: string; name: string; expense: number; income: number; color: string }[]; byCategory: { id: string; name: string; expense: number; color: string }[]; pending: number; ocr_draft?: { amount_satang: number; slips: number; own_transfers?: number }; transfers?: { amount_satang: number; count: number } };
 
 export const transactionInput = z.object({
   kind: z.enum(['income', 'expense', 'transfer']),
@@ -80,6 +80,24 @@ export function likelyOwnTransfer(draft: OcrDraft | null | undefined, ownNames: 
   return ownNames.some(name => [name, name.trim().split(/\s+/)[0]].map(normalizeName).some(key => key.length >= 3 && recipient.includes(key)));
 }
 // Daily reports go out at 08:00 for the previous day; slips uploaded until that morning belong to it.
+// Turns a slip's OCR draft into a transaction to save automatically, or null when it cannot be saved safely
+// (no amount, or no account to book it on). The source account comes from the sender's masked number, else the
+// account linked to the Drive source; a recipient number matching another own account makes it a transfer.
+export function autoTransaction(slip: Pick<Slip, 'uploaded_at' | 'ocr_details'>, sourceAccountId: string | null, accounts: Account[], rules: Rule[] = []): TransactionInput | null {
+  const d = slip.ocr_details;
+  if (!d || d.error || !Number.isSafeInteger(d.amount_satang) || !(d.amount_satang! > 0)) return null;
+  const banks = accounts.filter(a => a.kind === 'bank');
+  const account = accountForMask(d.sender_account, banks)?.id ?? (banks.some(a => a.id === sourceAccountId) ? sourceAccountId : null);
+  if (!account) return null;
+  const target = accountForMask(d.recipient_account, banks);
+  const to = target && target.id !== account ? target.id : null;
+  const counterparty = (d.recipient ?? '').trim().slice(0, 200);
+  const read = d.date && d.time ? new Date(`${d.date}T${d.time}:00+07:00`) : null;
+  const occurred = read && !Number.isNaN(read.getTime()) ? read : new Date(slip.uploaded_at);
+  const input = transactionInput.safeParse({ kind: to ? 'transfer' : 'expense', amount_satang: d.amount_satang, account_id: account, to_account_id: to,
+    category_id: to ? null : rules.find(r => r.counterparty === counterparty)?.category_id ?? null, occurred_at: occurred.toISOString(), note: '', counterparty });
+  return input.success ? input.data : null;
+}
 export function dailyPendingWindow(date: string) {
   const start = new Date(`${date}T08:00:00+07:00`);
   return { start: start.toISOString(), end: new Date(start.getTime() + 86400000).toISOString() };
@@ -90,18 +108,17 @@ export function summarize(data: Dataset, start: string, end: string, pendingEnd 
   const pending = data.slips.filter(s => ['needs_details','qr_unreadable','queued','processing','failed'].includes(s.status) && new Date(s.uploaded_at).getTime() >= pendingFrom && new Date(s.uploaded_at).getTime() < pendingUntil);
   // Unreviewed OCR amounts are shown beside the totals, never added to them.
   const readable = pending.filter(s => !s.ocr_details?.error && Number.isSafeInteger(s.ocr_details?.amount_satang) && s.ocr_details!.amount_satang! > 0);
-  // Own-account transfers count as spending too, so their drafts join the draft total; own_transfers stays as a hint count.
-  const own = readable.filter(s => likelyOwnTransfer(s.ocr_details, data.settings.own_names, data.accounts)), drafts = readable;
+  const own = readable.filter(s => likelyOwnTransfer(s.ocr_details, data.settings.own_names, data.accounts)), drafts = readable.filter(s => !own.includes(s));
   const rows = data.transactions.filter(t => new Date(t.occurred_at).getTime() >= from && new Date(t.occurred_at).getTime() < until);
-  // Spending ("ใช้ไป") includes transfers between own accounts, counted on the source account.
-  const spends = (t: Transaction) => t.kind === 'expense' || t.kind === 'transfer';
-  const spent = rows.filter(spends), total = (list: Transaction[]) => list.reduce((n, t) => n + t.amount_satang, 0);
+  // Spending ("ใช้ไป") is expenses only; transfers between own accounts are reported apart.
+  const spent = rows.filter(t => t.kind === 'expense'), moved = rows.filter(t => t.kind === 'transfer'), total = (list: Transaction[]) => list.reduce((n, t) => n + t.amount_satang, 0);
   const income = total(rows.filter(t => t.kind === 'income')), expense = total(spent);
   return { income, expense, net: income - expense, count: spent.length,
     byAccount: data.accounts.map(a => ({ id: a.id, name: a.name, color: a.color, income: total(rows.filter(t => t.account_id === a.id && t.kind === 'income')), expense: total(spent.filter(t => t.account_id === a.id)) })),
     byCategory: [...data.categories, { id: 'uncategorized', name: 'ยังไม่จัดหมวด', color: '#a2abc0' }].map(c => ({ ...c, expense: total(spent.filter(t => (t.category_id ?? 'uncategorized') === c.id)) })).sort((a,b)=>b.expense-a.expense),
     pending: pending.length,
-    ocr_draft: { amount_satang: drafts.reduce((n, s) => n + s.ocr_details!.amount_satang!, 0), slips: drafts.length, own_transfers: own.length } };
+    ocr_draft: { amount_satang: drafts.reduce((n, s) => n + s.ocr_details!.amount_satang!, 0), slips: drafts.length, own_transfers: own.length },
+    transfers: { amount_satang: total(moved), count: moved.length } };
 }
 export function dueReportPeriods(now = new Date()) {
   const p = bangkokParts(now); const result: { key: string; kind: 'day' | 'week' | 'month'; start: string; end: string }[] = [];
@@ -161,6 +178,7 @@ export function flexReport(summary:Summary,key:string,origin:string,syncStatus:s
   // Status notes appear only when there is something to report (no "0 slips" lines).
   const notes:FlexNode[]=[];
   if(summary.pending)notes.push(text(`รอข้อมูล ${summary.pending} สลิป · ไม่รวมในยอด`,{size:'xs',color:'#94703a'}));
+  if(summary.transfers?.count)notes.push(text(`โอนเข้าบัญชีตัวเอง ${money(summary.transfers.amount_satang)} (${summary.transfers.count} รายการ) · ไม่รวมในยอด`,{size:'xs',color:'#94703a'}));
   if(summary.ocr_draft?.slips)notes.push(text(`ร่าง OCR ยังไม่ตรวจ ${money(summary.ocr_draft.amount_satang)} (${summary.ocr_draft.slips} สลิป) · ไม่รวมในยอด`,{size:'xs',color:'#94703a'}));
   const mascotUrl=flexMascotUrl(key,origin);
   // Compact header: title, amount and one line of detail; small mascot.

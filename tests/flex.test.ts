@@ -51,3 +51,8 @@ it('leaves out the pending-slip note, note box and button when nothing is pendin
   expect(message.altText).not.toContain('รอข้อมูล');
   expect(message.contents.footer.contents.map(node=>node.type==='button'?node.action.label:'')).toEqual(['ดู Dashboard']);
 });
+it('shows own-account transfers apart from spending, only when there are some',()=>{
+  const base={...example('day'),transfers:{amount_satang:500000,count:2}};
+  expect(texts(flexReport(base,'day:2026-10-10','https://app.example','ตรวจสำเร็จ').contents.body.contents)).toContain('โอนเข้าบัญชีตัวเอง ฿5,000.00 (2 รายการ) · ไม่รวมในยอด');
+  expect(texts(flexReport({...base,transfers:{amount_satang:0,count:0}},'day:2026-10-10','https://app.example','ตรวจสำเร็จ').contents.body.contents).some(t=>t.startsWith('โอนเข้าบัญชีตัวเอง'))).toBe(false);
+});

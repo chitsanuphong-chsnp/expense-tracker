@@ -129,6 +129,12 @@ Patched image processing to sharp 0.35.5 and tests to Vitest 5.0.3. The installe
 
 - LINE Flex redesign: compact gradient header (linearGradient box background with solid fallback) with title, amount, item count and a 60 px mascot; accounts with colour dots (no categories or share bars, since most spending is uncategorised); tinted status box (pending, OCR draft, own transfers); secondary/primary buttons. In-app preview renders the same payload (gradient, radius, padding, widths) on a light bubble in both themes. Payload under 30 KB (test).
 
+## 11 Oct 2026 (night): auto-save slips, transfers apart, review tab
+- Owner changed the rule: slips whose OCR amount is read are saved automatically. `autoTransaction` (core) picks the source account from the sender number or the Drive source's account, makes a transfer when the recipient number is another own account, uses the slip date/time or the upload time, applies category rules; no amount or no bank account → stays pending. Migration 007: `transactions.needs_review`, source `auto`, `auto_save_slip` (service role only), `mark_reviewed`, `save_transaction` clears the flag. Tests: `tests/auto-save.test.ts` (unit + PGlite), check-migrations now 13 rows.
+- Worker saves after OCR; `POST /api/sync` also saves earlier pending slips with a readable draft; upload saves and opens the row; `POST /api/transactions/:id/reviewed`.
+- Own transfers are no longer spending: `Summary.transfers`, Flex line "โอนเข้าบัญชีตัวเอง ฿X (N รายการ) · ไม่รวมในยอด", home 2×2 tiles, transfers-only list from the tile, ⇄ rows without minus.
+- Slip box tab "บันทึกอัตโนมัติ (N)" with the saved values beside the image, "แก้ไข" / "ตรวจแล้ว". Checked in demo: tab → modal → ตรวจแล้ว (check modal, tab empties); transfer tile → filtered list.
+
 ## 11 Oct 2026 (evening): no report catch-up
 - Slips page: the import result shows under "ดึงสลิปตอนนี้" and the upload result under "เลือกรูปสลิป" (were both at the card bottom).
 - Fix: "ดึงสลิปตอนนี้" pressed again within the same 5 minutes reused the finished scan job key, so nothing was scanned (the bar showed 0 of 0). Each press now queues a fresh scan job. Test fails on the old code, passes now.

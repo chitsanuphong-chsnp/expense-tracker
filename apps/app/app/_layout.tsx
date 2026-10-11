@@ -1,4 +1,5 @@
 import React from 'react';
+import {tone} from '../src/theme';
 import {Slot,Redirect,usePathname,useGlobalSearchParams} from 'expo-router';
 import {SafeAreaProvider,SafeAreaView} from 'react-native-safe-area-context';
 import {StatusBar} from 'expo-status-bar';
@@ -7,6 +8,8 @@ import {DataProvider,useData} from '../src/state';
 import {Frame,C} from '../src/ui';
 import {safeReturnPath} from '../src/auth-policy';
 import {Loading,MotionProvider} from '../src/motion';
+import {ThemeProvider,useTheme} from '../src/theme-provider';
+import {OpeningAnimation} from '../src/splash';
 
 function Gate(){const state=useData(),path=usePathname(),params=useGlobalSearchParams();
   if(!state.ready)return <Loading fullScreen label="กำลังเตรียมสมุดบันทึก"/>;
@@ -17,6 +20,9 @@ function Gate(){const state=useData(),path=usePathname(),params=useGlobalSearchP
   return <Redirect href={{pathname:'/login',params:{next:safeReturnPath(path+(query.size?`?${query}`:''))}}}/>;
 }
 export default function Layout(){const [fonts,error]=useFonts({NotoThai:require('@expo-google-fonts/noto-sans-thai/400Regular/NotoSansThai_400Regular.ttf'),NotoThaiBold:require('@expo-google-fonts/noto-sans-thai/600SemiBold/NotoSansThai_600SemiBold.ttf'),NotoLatin:require('@expo-google-fonts/noto-sans/400Regular/NotoSans_400Regular.ttf'),NotoLatinBold:require('@expo-google-fonts/noto-sans/600SemiBold/NotoSans_600SemiBold.ttf')});
-  const path=usePathname(),authPage=path==='/login'||path.startsWith('/auth/');
-  return <MotionProvider><SafeAreaProvider><SafeAreaView style={{flex:1,backgroundColor:authPage?'#0d1120':C.bg}} edges={['top','left','right','bottom']}><StatusBar style={authPage?'light':'dark'}/>{!fonts&&!error?<Loading fullScreen fontsReady={false} label="กำลังเปิดแอป"/>:<DataProvider><Gate/></DataProvider>}</SafeAreaView></SafeAreaProvider></MotionProvider>;
+  return <ThemeProvider><Shell fontsReady={!!fonts||!!error}/></ThemeProvider>;
+}
+function Shell({fontsReady}:{fontsReady:boolean}){
+  const path=usePathname(),authPage=path==='/login'||path.startsWith('/auth/'),{dark}=useTheme(),[intro,setIntro]=React.useState(true);
+  return <MotionProvider><SafeAreaProvider><SafeAreaView style={{flex:1,backgroundColor:authPage?tone('#0d1120'):C.bg}} edges={['top','left','right','bottom']}><StatusBar style={authPage||dark?'light':'dark'}/>{!fontsReady?<Loading fullScreen fontsReady={false} label="กำลังเปิดแอป"/>:<DataProvider><Gate key={dark?'dark':'light'}/></DataProvider>}{fontsReady&&intro&&<OpeningAnimation onDone={()=>setIntro(false)}/>}</SafeAreaView></SafeAreaProvider></MotionProvider>;
 }

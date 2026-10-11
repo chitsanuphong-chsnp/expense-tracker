@@ -3,6 +3,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {Session} from '@supabase/supabase-js';
 import {AppState,Platform} from 'react-native';
 import {supabase,authService} from './auth-client';
+// Thai text for API error codes; callers can still check error.code.
+const apiErrors:Record<string,string>={
+  MIGRATION_REQUIRED:'ฐานข้อมูลยังไม่อัปเดต รัน migration ล่าสุด (005, 006) ใน Supabase SQL Editor แล้วลองใหม่',
+  DRIVE_NOT_ENABLED_FOR_ACCOUNT:'บัญชีนี้ยังไม่ได้ตั้งเป็นเจ้าของ Drive (DRIVE_OWNER_ID ใน Vercel)',
+  DRIVE_NOT_CONFIGURED:'ยังไม่ได้ตั้งค่า Google Drive ใน Vercel',LINE_NOT_CONNECTED:'ยังไม่ได้เชื่อม LINE',
+  OCR_NOT_CONFIGURED:'ยังไม่เปิด OCR (OCR_ENABLED ใน Vercel)',IMPORT_RUNNING:'กำลังนำเข้าสลิปอยู่ รอสักครู่แล้วลองใหม่',
+  ACCOUNT_IN_USE:'บัญชีนี้มีรายการอยู่ ลบรายการหรือรีเซ็ตก่อน',INVALID_INPUT:'ข้อมูลไม่ถูกต้อง',CONFLICT:'ข้อมูลซ้ำกับที่มีอยู่',
+  IMAGE_TOO_LARGE:'รูปใหญ่เกินไป',UNAUTHORIZED:'กรุณาเข้าสู่ระบบใหม่',DATABASE_ERROR:'บันทึกลงฐานข้อมูลไม่สำเร็จ',REQUEST_FAILED:'ระบบขัดข้อง ลองใหม่อีกครั้ง',
+};
 export {supabase} from './auth-client';
 import {type Dataset,type TransactionInput,thaiDate} from '@expense/core';
 
@@ -33,7 +42,9 @@ export function DataProvider({children}:{children:React.ReactNode}) {
   async function call(path:string,method='GET',body?:unknown){
     if(!session)throw new Error('กรุณาเข้าสู่ระบบ');
     const response=await fetch(`${apiOrigin}/api${path}`,{method,headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});
-    const result=await response.json();if(!response.ok)throw new Error(result.error??'เชื่อมต่อไม่สำเร็จ');return result;
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok){const code=result.error??'REQUEST_FAILED',error=new Error(apiErrors[code]??code) as Error&{code?:string};error.code=code;throw error;}
+    return result;
   }
     async function refresh(quiet=false){
     if(demo||!currentSession.current)return; if(quiet&&pendingRefreshes.current>0){queuedRefresh.current=true;return;}

@@ -1,4 +1,5 @@
 import React,{useEffect,useState} from 'react';
+import {toneText} from './theme';
 import {View} from 'react-native';
 import {useRouter} from 'expo-router';
 import type {User} from '@supabase/supabase-js';
@@ -29,7 +30,7 @@ export function AccountScreen(){
       <Button secondary loading={busy} disabled={loading||!googleEnabled||hasGoogle||state.demo} onPress={()=>void run(async()=>{const result=await authService.google(await authStorage.getRemember(),true);if(result){await load();setMessage('เชื่อม Google กับบัญชีเดิมแล้ว');}})}>เชื่อม Google กับบัญชีนี้</Button>{!googleEnabled&&<T style={s.muted}>พร้อมเปิดหลังตั้งค่า Google Login</T>}
     </Card>
     <Card style={{gap:14}}><View style={s.row}><Smartphone size={20} color={C.primary}/><T style={s.bold}>เชื่อมเบอร์โทร</T></View>
-      {!smsEnabled?<><T style={s.muted}>เตรียมระบบไว้แล้ว แต่ยังปิดส่ง SMS ใช้ OTP อีเมลฟรีก่อน</T><Badge text="ยังไม่เปิด SMS" color='#a8864b'/></>:<>
+      {!smsEnabled?<><T style={s.muted}>เตรียมระบบไว้แล้ว แต่ยังปิดส่ง SMS ใช้ OTP อีเมลฟรีก่อน</T><Badge text="ยังไม่เปิด SMS" color={toneText('#a8864b')}/></>:<>
         {target?<><T>ยืนยันเบอร์ {target}</T><Field label="รหัสยืนยันเบอร์ 6 หลัก" value={code} onChangeText={v=>setCode(v.replace(/\D/g,'').slice(0,6))} keyboardType="number-pad" maxLength={6} autoComplete="one-time-code" textContentType="oneTimeCode"/><ActionRow><Button secondary disabled={busy} onPress={()=>{setTarget('');setCode('');}}>ยกเลิก</Button><Button loading={busy} onPress={()=>void run(async()=>{await authService.verifyPhone(target,code);await load();setTarget('');setCode('');setMessage('ยืนยันเบอร์และเชื่อมบัญชีเดิมแล้ว');})}>ยืนยันและเชื่อม</Button></ActionRow><Button secondary disabled={busy||cooldown>0} onPress={()=>void run(sendPhone)}>{cooldown>0?`ส่งใหม่ใน ${cooldown} วินาที`:'ส่งรหัสใหม่'}</Button></>:<><Field label="เบอร์โทรที่จะเชื่อม" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" placeholder="0812345678"/><Button secondary loading={busy} disabled={loading||state.demo} onPress={()=>void run(sendPhone)}>ส่ง OTP เพื่อเชื่อมเบอร์</Button></>}
       </>}
     </Card>

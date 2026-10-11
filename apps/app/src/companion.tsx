@@ -1,4 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
+import {tone,toneText} from './theme';
 import {Animated,Easing,Image,Platform,View} from 'react-native';
 import {T,C} from './ui';
 import {useMotion,MotionPressable} from './motion';
@@ -62,5 +63,5 @@ export function Mascot({size=92,pose:controlled,auto=true,onPoseChange,interacti
   return <MotionPressable accessibilityRole="button" accessibilityLabel={`ตัวละคร ${mascotPoses[layer].name} แตะเพื่อเปลี่ยนท่า`} onPress={next} hitSlop={6} style={sizeStyle}>{figure}</MotionPressable>;
 }
 export function Companion({title,text}:{title:string;text:string}){
-  return <View style={{flexDirection:'row',alignItems:'center',gap:12,paddingHorizontal:12,paddingVertical:7,backgroundColor:'#eeedf9',borderRadius:20,overflow:'hidden'}}><Mascot size={68}/><View style={{flex:1,minWidth:0,gap:5}}><T style={{fontFamily:'NotoThaiBold',fontSize:12,color:'#5d5a85'}}>{title}</T><T style={{fontSize:10,color:C.muted}}>{text}</T><T style={{fontSize:9,color:'#9491ae'}}>แตะน้องเพื่อเปลี่ยนท่า</T></View></View>;
+  return <View style={{flexDirection:'row',alignItems:'center',gap:12,paddingHorizontal:12,paddingVertical:7,backgroundColor:tone('#eeedf9'),borderRadius:20,overflow:'hidden'}}><Mascot size={68}/><View style={{flex:1,minWidth:0,gap:5}}><T style={{fontFamily:'NotoThaiBold',fontSize:12,color:toneText('#5d5a85')}}>{title}</T><T style={{fontSize:10,color:C.muted}}>{text}</T><T style={{fontSize:9,color:toneText('#9491ae')}}>แตะน้องเพื่อเปลี่ยนท่า</T></View></View>;
 }

@@ -3,48 +3,54 @@ import { admin,checked,dataset } from './db.ts';
 import { listFolder,downloadFile,assertDriveOwner } from './drive.ts';
 import { decodeQr } from './qr.ts';
 import { flexReport,pushReport } from './line.ts';
-import { shouldScan,dueReportPeriods,summarize,bangkokParts,dailyPendingWindow } from '@expense/core';
+import { shouldScan,dueReportPeriods,summarize,bangkokParts,dailyPendingWindow,thaiDate } from '@expense/core';
 
-export async function enqueueScan(owner:string,source:any,key:string) {
-  const db=admin();checked(await db.from('jobs').upsert({owner_id:owner,job_key:key,kind:'scan',payload:{source_id:source.id}},{onConflict:'owner_id,job_key',ignoreDuplicates:true}));
+export type ScanRange={from:string;to:string};
+export async function enqueueScan(owner:string,source:any,key:string,range:ScanRange) {
+  const db=admin();checked(await db.from('jobs').upsert({owner_id:owner,job_key:key,kind:'scan',payload:{source_id:source.id,...range}},{onConflict:'owner_id,job_key',ignoreDuplicates:true}));
 }
-async function scan(owner:string,sourceId:string,deadline:number) {
+const dateFolder=/^\d{4}-\d{2}-\d{2}$/;
+// Imports images whose date is within the range: the YYYY-MM-DD folder name, else the Drive created date.
+// Rerunnable after a timeout: known files are skipped by their Drive ID.
+export async function scan(owner:string,sourceId:string,range:ScanRange,deadline:number) {
   assertDriveOwner(owner);
-  const db=admin();const source=checked(await db.from('drive_sources').select('*').eq('owner_id',owner).eq('id',sourceId).single());
+  const db=admin();const source=checked(await db.from('drive_sources').select('*').eq('owner_id',owner).eq('id',sourceId).maybeSingle());
   if(!source)return true;
-  let cursor=source.cursor??{folders:[{id:source.folder_id}],seen:[]};
-  while(cursor.folders.length&&Date.now()<deadline-30000) {
-    const current=cursor.folders[0];const page=await listFolder(current.id,current.pageToken);
-    for(const f of page.files) {
-      // Resume the same page after timeout; file/job upserts make repeating its prefix harmless.
-      if(Date.now()>=deadline-30000){checked(await db.from('drive_sources').update({cursor,last_scan_status:'scanning',scan_complete:false}).eq('id',source.id).eq('owner_id',owner));return false;}
-      if(f.mimeType==='application/vnd.google-apps.folder') {
-        if(!cursor.seen.includes(f.id)&&!cursor.folders.some((x:any)=>x.id===f.id))cursor.folders.push({id:f.id});
-      } else if(['image/jpeg','image/png','image/webp'].includes(f.mimeType)) {
-        const existing=checked(await db.from('slips').select('id').eq('owner_id',owner).eq('drive_file_id',f.id).maybeSingle());
-        let slipId=existing?.id;
-        if(!slipId) {
-          const inserted=await db.from('slips').upsert({owner_id:owner,source_id:source.id,source_code:source.source_code,drive_file_id:f.id,name:f.name,uploaded_at:f.createdTime},{onConflict:'owner_id,drive_file_id',ignoreDuplicates:true}).select('id');
-          checked(inserted);slipId=inserted.data?.[0]?.id;
-          if(!slipId)slipId=checked(await db.from('slips').select('id').eq('owner_id',owner).eq('drive_file_id',f.id).single())?.id;
+  const inRange=(date:string)=>date>=range.from&&date<=range.to;
+  const queue:{id:string;date?:string;depth:number}[]=[{id:source.folder_id,depth:0}];
+  checked(await db.from('drive_sources').update({last_scan_status:'scanning',scan_complete:false}).eq('id',source.id).eq('owner_id',owner));
+  while(queue.length) {
+    const folder=queue.shift()!;let pageToken:string|undefined;
+    do {
+      if(Date.now()>=deadline-30000)return false;
+      const page=await listFolder(folder.id,pageToken);pageToken=page.nextPageToken;
+      for(const f of page.files) {
+        if(f.mimeType==='application/vnd.google-apps.folder') {
+          if(dateFolder.test(f.name)){if(inRange(f.name))queue.push({id:f.id,date:f.name,depth:folder.depth+1});}
+          else if(folder.depth<2)queue.push({id:f.id,date:folder.date,depth:folder.depth+1});
+        } else if(['image/jpeg','image/png','image/webp'].includes(f.mimeType)&&inRange(folder.date??thaiDate(f.createdTime))) {
+          const existing=checked(await db.from('slips').select('id').eq('owner_id',owner).eq('drive_file_id',f.id).maybeSingle());
+          let slipId=existing?.id;
+          if(!slipId) {
+            const inserted=await db.from('slips').upsert({owner_id:owner,source_id:source.id,source_code:source.source_code,drive_file_id:f.id,name:f.name,uploaded_at:f.createdTime},{onConflict:'owner_id,drive_file_id',ignoreDuplicates:true}).select('id');
+            checked(inserted);slipId=inserted.data?.[0]?.id;
+            if(!slipId)slipId=checked(await db.from('slips').select('id').eq('owner_id',owner).eq('drive_file_id',f.id).single())?.id;
+          }
+          // Enqueue also for existing rows: safe recovery if insert succeeded before a crash.
+          if(slipId)checked(await db.from('jobs').upsert({owner_id:owner,job_key:`qr:${slipId}`,kind:'qr',payload:{slip_id:slipId}},{onConflict:'owner_id,job_key',ignoreDuplicates:true}));
         }
-        // Enqueue also for existing rows: safe recovery if insert succeeded before a crash.
-        if(slipId)checked(await db.from('jobs').upsert({owner_id:owner,job_key:`qr:${slipId}`,kind:'qr',payload:{slip_id:slipId}},{onConflict:'owner_id,job_key',ignoreDuplicates:true}));
       }
-    }
-    if(page.nextPageToken)current.pageToken=page.nextPageToken;
-    else{cursor.seen.push(current.id);cursor.folders.shift();}
-    checked(await db.from('drive_sources').update({cursor,last_scan_status:'scanning',scan_complete:false}).eq('id',source.id).eq('owner_id',owner));
+    } while(pageToken);
   }
-  const complete=cursor.folders.length===0;
-  checked(await db.from('drive_sources').update({cursor:complete?null:cursor,scan_complete:complete,last_scan_status:complete?'success':'scanning',...(complete?{last_scan_at:new Date().toISOString()}:{})}).eq('id',source.id).eq('owner_id',owner));
-  return complete;
+  checked(await db.from('drive_sources').update({cursor:null,scan_complete:true,last_scan_status:'success',last_scan_at:new Date().toISOString()}).eq('id',source.id).eq('owner_id',owner));
+  return true;
 }
 async function qr(owner:string,id:string) {
   assertDriveOwner(owner);
   const db=admin();const slip=checked(await db.from('slips').select('*').eq('owner_id',owner).eq('id',id).single());
   if(!slip||slip.transaction_id||slip.status==='duplicate')return;
   checked(await db.from('slips').update({status:'processing',error_code:null}).eq('id',id).eq('owner_id',owner).is('transaction_id',null).neq('status','duplicate'));
+  if(!slip.drive_file_id)return; // uploaded in the app: QR/OCR were done at upload, no image is kept
   const bytes=await downloadFile(slip.drive_file_id);const result=await decodeQr(bytes);
   checked(await db.rpc('finish_qr',{p_id:id,p_hash:result.hash,p_payload:result.payload,p_qr_key:result.key,p_error:result.payload?null:'QR_NOT_FOUND'}));
   // Mini QR supplies the reference; OCR proposes text fields but never assumes direction.
@@ -79,10 +85,12 @@ async function sendReport(owner:string,period:any) {
 }
 export function safeCode(e:unknown) { const m=e instanceof Error?e.message:'';return /^[A-Z][A-Z0-9_]{1,60}$/.test(m)?m:'PROCESSING_FAILED'; }
 async function tickUnlocked(now:Date,budgetMs:number) {
-  const db=admin(),deadline=Date.now()+budgetMs;const profiles=checked(await db.from('profiles').select('id,reporting_started_at'))??[];
+  const db=admin(),deadline=Date.now()+budgetMs;const profiles=checked(await db.from('profiles').select('*'))??[];
   for(const profile of profiles) {
     if(shouldScan(now))for(const source of await (async()=>checked(await db.from('drive_sources').select('*').eq('owner_id',profile.id)))()??[]) {
-      const p=bangkokParts(now);await enqueueScan(profile.id,source,`scan:${source.id}:${p.date}:${p.hour}:${Math.floor(p.minute/5)}`);
+      // Night scans cover yesterday and today, never before the owner's import start date.
+      const p=bangkokParts(now),yesterday=thaiDate(new Date(now.getTime()-86400000)),from=profile.import_from&&profile.import_from>yesterday?profile.import_from:yesterday;
+      if(from<=p.date)await enqueueScan(profile.id,source,`scan:${source.id}:${p.date}:${p.hour}:${Math.floor(p.minute/5)}`,{from,to:p.date});
     }
     for(const period of dueReportPeriods(now)) {
       if(new Date(period.end).getTime()<new Date(profile.reporting_started_at).getTime())continue;
@@ -97,7 +105,7 @@ async function tickUnlocked(now:Date,budgetMs:number) {
   while(Date.now()<deadline-margin) {
     const job=(checked(await db.rpc('claim_job'))??[])[0];if(!job)break;
     try {
-      const done=job.kind==='scan'?await scan(job.owner_id,job.payload.source_id,deadline):job.kind==='qr'?(await qr(job.owner_id,job.payload.slip_id),true):(await sendReport(job.owner_id,job.payload),true);
+      const done=job.kind==='scan'?await scan(job.owner_id,job.payload.source_id,scanRange(job.payload),deadline):job.kind==='qr'?(await qr(job.owner_id,job.payload.slip_id),true):(await sendReport(job.owner_id,job.payload),true);
       checked(await db.from('jobs').update({status:done?'done':'pending',lease_until:null,lease_token:null,...(!done?{attempts:Math.max(0,job.attempts-1),next_run_at:new Date(Date.now()+60000).toISOString()}:{})}).eq('id',job.id).eq('lease_token',job.lease_token));processed++;
     } catch(e) {
       const code=safeCode(e);const failed=job.attempts>=5;
@@ -113,6 +121,11 @@ export async function tick(now=new Date(),budgetMs=205000) {
   const db=admin(),token=checked(await db.rpc('acquire_tick'));
   if(!token)return {processed:0,busy:true};
   try{return await tickUnlocked(now,budgetMs);}finally{checked(await db.rpc('release_tick',{p_token:token}));}
+}
+// Older queued jobs (before date ranges) scan only the last two days.
+function scanRange(payload:any):ScanRange{
+  if(payload.from&&payload.to)return {from:payload.from,to:payload.to};
+  const today=thaiDate();return {from:thaiDate(new Date(Date.now()-86400000)),to:today};
 }
 export async function pendingImportJobs(owner:string) {
   const r=await admin().from('jobs').select('id',{count:'exact',head:true}).eq('owner_id',owner).in('kind',['scan','qr']).in('status',['pending','running']);

@@ -3,46 +3,47 @@
   "altText": "สรุปวันที่ 6 ต.ค. ใช้ไป ฿845.00 · รอข้อมูล 2 สลิป",
   "contents": {
     "type": "bubble",
+    "size": "mega",
     "header": {
       "type": "box",
       "layout": "horizontal",
       "alignItems": "center",
       "spacing": "sm",
+      "paddingAll": "16px",
       "backgroundColor": "#5564dc",
+      "background": {
+        "type": "linearGradient",
+        "angle": "135deg",
+        "startColor": "#4876e2",
+        "endColor": "#7756ca"
+      },
       "contents": [
         {
           "type": "box",
           "layout": "vertical",
           "flex": 1,
-          "spacing": "xs",
           "contents": [
             {
               "type": "text",
-              "text": "Expense Tracker",
-              "color": "#ffffff",
-              "size": "xs",
-              "wrap": true
-            },
-            {
-              "type": "text",
               "text": "สรุปวันที่ 6 ต.ค.",
-              "color": "#ffffff",
-              "weight": "bold",
-              "size": "lg",
-              "wrap": true
-            },
-            {
-              "type": "text",
-              "text": "ใช้ไป",
-              "color": "#e0e4ff",
-              "size": "sm"
+              "size": "sm",
+              "color": "#e8ebff",
+              "wrap": true,
+              "weight": "bold"
             },
             {
               "type": "text",
               "text": "฿845.00",
-              "color": "#ffffff",
-              "weight": "bold",
               "size": "xxl",
+              "color": "#ffffff",
+              "wrap": true,
+              "weight": "bold"
+            },
+            {
+              "type": "text",
+              "text": "ใช้ไป · 5 รายการ",
+              "size": "xxs",
+              "color": "#dfe3ff",
               "wrap": true
             }
           ]
@@ -50,7 +51,7 @@
         {
           "type": "image",
           "url": "https://expense-tracker.example/line/mascot-reading-v2.png",
-          "size": "88px",
+          "size": "60px",
           "aspectRatio": "1:1",
           "aspectMode": "fit",
           "flex": 0
@@ -61,159 +62,222 @@
       "type": "box",
       "layout": "vertical",
       "spacing": "md",
+      "paddingAll": "18px",
       "contents": [
+        {
+          "type": "text",
+          "text": "แยกตามบัญชี",
+          "size": "xs",
+          "color": "#8a94a8",
+          "wrap": true,
+          "weight": "bold"
+        },
         {
           "type": "box",
           "layout": "horizontal",
+          "spacing": "sm",
+          "alignItems": "center",
           "contents": [
+            {
+              "type": "box",
+              "layout": "vertical",
+              "contents": [],
+              "width": "8px",
+              "height": "8px",
+              "cornerRadius": "4px",
+              "backgroundColor": "#5575e7"
+            },
             {
               "type": "text",
               "text": "ttb",
               "size": "sm",
-              "color": "#667085",
-              "flex": 2
+              "color": "#4a5468",
+              "wrap": false,
+              "flex": 3
             },
             {
               "type": "text",
-              "text": "ใช้ไป ฿245.00",
+              "text": "฿245.00",
               "size": "sm",
+              "color": "#253044",
+              "wrap": false,
+              "flex": 2,
               "weight": "bold",
-              "align": "end",
-              "flex": 3,
-              "wrap": true
+              "align": "end"
             }
           ]
         },
         {
           "type": "box",
           "layout": "horizontal",
+          "spacing": "sm",
+          "alignItems": "center",
           "contents": [
+            {
+              "type": "box",
+              "layout": "vertical",
+              "contents": [],
+              "width": "8px",
+              "height": "8px",
+              "cornerRadius": "4px",
+              "backgroundColor": "#34ac95"
+            },
             {
               "type": "text",
               "text": "K-PLUS",
               "size": "sm",
-              "color": "#667085",
-              "flex": 2
+              "color": "#4a5468",
+              "wrap": false,
+              "flex": 3
             },
             {
               "type": "text",
-              "text": "ใช้ไป ฿180.00",
+              "text": "฿180.00",
               "size": "sm",
+              "color": "#253044",
+              "wrap": false,
+              "flex": 2,
               "weight": "bold",
-              "align": "end",
-              "flex": 3,
-              "wrap": true
+              "align": "end"
             }
           ]
         },
         {
           "type": "box",
           "layout": "horizontal",
+          "spacing": "sm",
+          "alignItems": "center",
           "contents": [
+            {
+              "type": "box",
+              "layout": "vertical",
+              "contents": [],
+              "width": "8px",
+              "height": "8px",
+              "cornerRadius": "4px",
+              "backgroundColor": "#5ba7dc"
+            },
             {
               "type": "text",
               "text": "Krungthai",
               "size": "sm",
-              "color": "#667085",
-              "flex": 2
+              "color": "#4a5468",
+              "wrap": false,
+              "flex": 3
             },
             {
               "type": "text",
-              "text": "ใช้ไป ฿120.00",
+              "text": "฿120.00",
               "size": "sm",
+              "color": "#253044",
+              "wrap": false,
+              "flex": 2,
               "weight": "bold",
-              "align": "end",
-              "flex": 3,
-              "wrap": true
+              "align": "end"
             }
           ]
         },
         {
           "type": "box",
           "layout": "horizontal",
+          "spacing": "sm",
+          "alignItems": "center",
           "contents": [
+            {
+              "type": "box",
+              "layout": "vertical",
+              "contents": [],
+              "width": "8px",
+              "height": "8px",
+              "cornerRadius": "4px",
+              "backgroundColor": "#9d7ae5"
+            },
             {
               "type": "text",
               "text": "MAKE",
               "size": "sm",
-              "color": "#667085",
-              "flex": 2
+              "color": "#4a5468",
+              "wrap": false,
+              "flex": 3
             },
             {
               "type": "text",
-              "text": "ใช้ไป ฿200.00",
+              "text": "฿200.00",
               "size": "sm",
+              "color": "#253044",
+              "wrap": false,
+              "flex": 2,
               "weight": "bold",
-              "align": "end",
-              "flex": 3,
-              "wrap": true
+              "align": "end"
             }
           ]
         },
         {
           "type": "box",
           "layout": "horizontal",
+          "spacing": "sm",
+          "alignItems": "center",
           "contents": [
+            {
+              "type": "box",
+              "layout": "vertical",
+              "contents": [],
+              "width": "8px",
+              "height": "8px",
+              "cornerRadius": "4px",
+              "backgroundColor": "#e6ad4b"
+            },
             {
               "type": "text",
               "text": "เงินสด",
               "size": "sm",
-              "color": "#667085",
-              "flex": 2
+              "color": "#4a5468",
+              "wrap": false,
+              "flex": 3
             },
             {
               "type": "text",
-              "text": "ใช้ไป ฿100.00",
+              "text": "฿100.00",
               "size": "sm",
+              "color": "#253044",
+              "wrap": false,
+              "flex": 2,
               "weight": "bold",
-              "align": "end",
-              "flex": 3,
-              "wrap": true
+              "align": "end"
             }
           ]
         },
         {
           "type": "box",
-          "layout": "horizontal",
+          "layout": "vertical",
+          "spacing": "xs",
+          "margin": "md",
+          "paddingAll": "12px",
+          "cornerRadius": "12px",
+          "backgroundColor": "#fff7e8",
           "contents": [
             {
               "type": "text",
-              "text": "หมวดสูงสุด",
-              "size": "sm",
-              "color": "#667085",
-              "flex": 2
+              "text": "รอข้อมูล 2 สลิป · ไม่รวมในยอด",
+              "size": "xs",
+              "color": "#94703a",
+              "wrap": true
             },
             {
               "type": "text",
-              "text": "อาหาร",
-              "size": "sm",
-              "weight": "bold",
-              "align": "end",
-              "flex": 3,
+              "text": "ร่าง OCR ยังไม่ตรวจ ฿630.00 (2 สลิป) · ไม่รวมในยอด",
+              "size": "xs",
+              "color": "#94703a",
               "wrap": true
             }
           ]
         },
         {
           "type": "text",
-          "text": "รอข้อมูล 2 สลิป · ไม่รวมในยอด",
-          "wrap": true,
-          "size": "xs",
-          "color": "#94703a"
-        },
-        {
-          "type": "text",
-          "text": "ร่าง OCR ยังไม่ตรวจ ฿630.00 (2 สลิป) · ไม่รวมในยอด",
-          "wrap": true,
-          "size": "xs",
-          "color": "#94703a"
-        },
-        {
-          "type": "text",
           "text": "ตรวจ Drive สำเร็จครบ 4 แหล่ง · รวมรายการเงินสดที่บันทึกเอง",
-          "wrap": true,
-          "size": "xs",
-          "color": "#667085"
+          "size": "xxs",
+          "color": "#8a94a8",
+          "wrap": true
         }
       ]
     },
@@ -221,9 +285,12 @@
       "type": "box",
       "layout": "horizontal",
       "spacing": "sm",
+      "paddingAll": "14px",
       "contents": [
         {
           "type": "button",
+          "style": "secondary",
+          "height": "sm",
           "flex": 1,
           "adjustMode": "shrink-to-fit",
           "action": {
@@ -234,9 +301,10 @@
         },
         {
           "type": "button",
+          "style": "primary",
+          "height": "sm",
           "flex": 1,
           "adjustMode": "shrink-to-fit",
-          "style": "primary",
           "color": "#5564dc",
           "action": {
             "type": "uri",

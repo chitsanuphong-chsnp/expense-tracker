@@ -110,3 +110,21 @@ Patched image processing to sharp 0.35.5 and tests to Vitest 5.0.3. The installe
 - Income removed from the app: dashboard tiles (income, net), reports cards, per-account income, record form option (still shown when editing an old income entry) and the type filter; demo data has no income. Existing income categories in a real account remain until deleted.
 - Typecheck, 90 tests, API/Web build passed. Not yet run on a real Vercel deployment.
 
+## 11 Oct 2026: date-range import, slip upload, edit/delete, reset, LINE test, header
+- `006_import_reset_manage.sql`: `profiles.import_from`, upload-origin slips (no Drive ID or image), RPCs `reset_transactions_and_slips`, `delete_account`, `delete_category`. PGlite tests: owner-scoped reset keeps setup and other owners, blocked during a live import; an upload slip makes a later Drive copy a duplicate; account in use refused; category delete uncategorizes and removes its rules. A reset bug (former duplicates colliding on the canonical QR index) was found by the test and fixed by clearing keys first.
+- Scan by date range (fake-Drive test: only in-range date folders and loose files by created date; stops before the deadline). Night scans use yesterday–today from `import_from`.
+- API tests: sync with range/source and reversed-range 400; upload creates an upload slip with QR key and returns the existing slip for duplicates; LINE test refuses when not connected.
+- UI (screenshots at 390x844, demo): slips page "ดึงสลิปจาก Drive" + "เลือกรูปสลิป" (OCR button removed, settings sync moved here); record form has one "โอนเข้าบัญชีของฉันไหม" picker instead of type chips; settings lists accounts/categories/rules with edit/delete, account numbers inside account edit, import-from date, LINE test button, reset with confirmation; new header with brand tile, date and rounded buttons. No console errors.
+- Typecheck, 99 tests, API/Web build passed. Upload and LINE test not yet run against real Supabase/LINE; expo-image-picker added for photo selection.
+
+## 11 Oct 2026: settings menu, dark mode, report filter, swipe back, opening animation, error messages
+- Settings: topic cards (accounts, categories, rules, Drive, names, LINE, budget, display, user account, reset); one section open at a time.
+- Dark mode: system/light/dark per device. Light colours stay the source; `theme.ts` maps surfaces to a slate palette with a hint of hue, ink to light text, accents brighter; chart bars use a calm indigo. Screens remount on theme change (data provider kept). Screenshots of home, reports, settings, record in both themes; no console errors.
+- Report filter: segment day/week/month plus ‹ period › navigator (no future periods), replaces segment + date field.
+- Swipe back: from the left edge (<28 px), page follows the finger; only in standalone PWA and native (Safari tabs already have it). Browser test: edge swipe goes back, mid-screen drag does not, normal tab unaffected.
+- Opening animation on every launch: mascot springs in and waves, coins and sparkles, title, then zoom/fade reveal (~2 s). Mascot centred using its measured bounding box (checked at 390 and 337 px wide).
+- Icon: `icon-v2.png` for header, login, app icon, favicon and PWA manifest.
+- Settings not saving after sign-in: API errors reached the app only as generic codes. Missing columns/functions now return `MIGRATION_REQUIRED` (tested) and the app shows Thai messages, e.g. run migrations 005/006. Real-account saving still needs those migrations.
+- Typecheck, 100 tests, API/Web build passed.
+
+- LINE Flex redesign: compact gradient header (linearGradient box background with solid fallback) with title, amount, item count and a 60 px mascot; accounts with colour dots (no categories or share bars, since most spending is uncategorised); tinted status box (pending, OCR draft, own transfers); secondary/primary buttons. In-app preview renders the same payload (gradient, radius, padding, widths) on a light bubble in both themes. Payload under 30 KB (test).

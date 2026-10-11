@@ -7,9 +7,9 @@ export type Category = { id: string; name: string; color: string };
 export type Transaction = { id: string; kind: 'income' | 'expense' | 'transfer'; amount_satang: number; account_id: string; to_account_id: string | null; category_id: string | null; occurred_at: string; note: string; counterparty: string; source: 'manual' | 'qr'; created_at?: string };
 export type OcrDraft = {engine:string;amount_satang:number|null;date:string|null;time:string|null;sender:string|null;recipient:string|null;requires_review:true;error?:string;attempts?:number;sender_account?:string|null;recipient_account?:string|null;date_source?:'upload'};
 export type SlipQrDetails = {format:'mini_qr'|'unrecognized';sending_bank_code:string|null;sending_bank_name:string|null;transaction_reference:string|null;country_code:string|null;checksum:string|null;tags:{path:string;value:string}[];missing:string[]};
-export type Slip = { id: string; source_code: SourceCode; status: 'queued' | 'processing' | 'needs_details' | 'qr_unreadable' | 'duplicate' | 'linked' | 'failed'; uploaded_at: string; transaction_id: string | null; qr_payload: string | null; qr_details?: SlipQrDetails | null; ocr_details?: OcrDraft | null; duplicate_of: string | null; error_code: string | null; drive_file_id: string; name?: string };
+export type Slip = { id: string; source_code: SourceCode; status: 'queued' | 'processing' | 'needs_details' | 'qr_unreadable' | 'duplicate' | 'linked' | 'failed'; uploaded_at: string; transaction_id: string | null; qr_payload: string | null; qr_details?: SlipQrDetails | null; ocr_details?: OcrDraft | null; duplicate_of: string | null; error_code: string | null; drive_file_id: string | null; origin?: 'drive' | 'upload'; name?: string };
 export type Source = { id: string; source_code: SourceCode; folder_id: string; account_id: string | null; last_scan_at: string | null; last_scan_status: string | null; scan_complete: boolean };
-export type Settings = { budget_satang: number; line_connected: boolean; line_blocked: boolean; own_names?: string[] };
+export type Settings = { budget_satang: number; line_connected: boolean; line_blocked: boolean; own_names?: string[]; import_from?: string | null };
 export type Dataset = { accounts: Account[]; categories: Category[]; transactions: Transaction[]; slips: Slip[]; sources: Source[]; settings: Settings; reports: Report[]; rules: Rule[] };
 export type Rule = { id: string; counterparty: string; category_id: string };
 export type Report = { id: string; report_key: string; status: string; period_start: string; period_end: string; snapshot: Summary; sent_at: string | null; error_code: string | null };
@@ -132,14 +132,15 @@ export function transactionsCsv(rows: Transaction[], accounts: Account[], catego
 
 
 // Shared by the delivery worker and the in-app preview. No tokens or network calls.
+export type FlexGradient={type:'linearGradient';angle:string;startColor:string;endColor:string};
 export type FlexNode =
-  | {type:'text';text:string;size?:string;color?:string;weight?:'bold';align?:'end'|'center';flex?:number;wrap?:boolean}
-  | {type:'box';layout:'vertical'|'horizontal';contents:FlexNode[];backgroundColor?:string;spacing?:string;flex?:number;alignItems?:'center'}
+  | {type:'text';text:string;size?:string;color?:string;weight?:'bold';align?:'end'|'center';flex?:number;wrap?:boolean;margin?:string}
+  | {type:'box';layout:'vertical'|'horizontal';contents:FlexNode[];backgroundColor?:string;background?:FlexGradient;spacing?:string;flex?:number;alignItems?:'center';justifyContent?:'center';cornerRadius?:string;paddingAll?:string;width?:string;height?:string;margin?:string}
   | {type:'image';url:string;size:string;aspectRatio:string;aspectMode:'fit';flex:number}
-  | {type:'separator'}
-  | {type:'button';style?:'primary';color?:string;flex?:number;adjustMode?:'shrink-to-fit';action:{type:'uri';label:string;uri:string}};
+  | {type:'separator';margin?:string;color?:string}
+  | {type:'button';style?:'primary'|'secondary';color?:string;height?:'sm'|'md';flex?:number;adjustMode?:'shrink-to-fit';action:{type:'uri';label:string;uri:string}};
 export type FlexBox=Extract<FlexNode,{type:'box'}>;
-export type FlexMessage={type:'flex';altText:string;contents:{type:'bubble';header:FlexBox;body:FlexBox;footer:FlexBox}};
+export type FlexMessage={type:'flex';altText:string;contents:{type:'bubble';size?:'mega';header:FlexBox;body:FlexBox;footer:FlexBox}};
 export function flexMascotUrl(key:string,origin:string):string|null {
   try {
     const base=new URL(origin);
@@ -152,10 +153,30 @@ export function flexMascotUrl(key:string,origin:string):string|null {
 export function flexReport(summary:Summary,key:string,origin:string,syncStatus:string):FlexMessage {
   const months=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   const title=key.startsWith('day:')?`สรุปวันที่ ${Number(key.slice(12,14))} ${months[Number(key.slice(9,11))-1]}`:key.startsWith('week:')?'สรุปสัปดาห์':'สรุปเดือน';
-  const draft=summary.ocr_draft?.slips?[{type:'text' as const,text:`ร่าง OCR ยังไม่ตรวจ ${money(summary.ocr_draft.amount_satang)} (${summary.ocr_draft.slips} สลิป) · ไม่รวมในยอด`,wrap:true,size:'xs',color:'#94703a'}]:[];
-  if(summary.ocr_draft?.own_transfers)draft.push({type:'text',text:`โอนเข้าบัญชีตัวเอง ${summary.ocr_draft.own_transfers} สลิป · ไม่รวมในยอด`,wrap:true,size:'xs',color:'#94703a'});
-  const row=(label:string,value:string):FlexNode=>({type:'box',layout:'horizontal',contents:[{type:'text',text:label,size:'sm',color:'#667085',flex:2},{type:'text',text:value,size:'sm',weight:'bold',align:'end',flex:3,wrap:true}]});
-  const mascotUrl=flexMascotUrl(key,origin),heading:FlexBox={type:'box',layout:'vertical',flex:1,spacing:'xs',contents:[{type:'text',text:'Expense Tracker',color:'#ffffff',size:'xs',wrap:true},{type:'text',text:title,color:'#ffffff',weight:'bold',size:'lg',wrap:true},{type:'text',text:'ใช้ไป',color:'#e0e4ff',size:'sm'},{type:'text',text:money(summary.expense),color:'#ffffff',weight:'bold',size:'xxl',wrap:true}]};
-  const header:FlexBox={type:'box',layout:'horizontal',alignItems:'center',spacing:'sm',backgroundColor:'#5564dc',contents:[heading,...(mascotUrl?[{type:'image' as const,url:mascotUrl,size:'88px',aspectRatio:'1:1',aspectMode:'fit' as const,flex:0}]:[])]};
-  return {type:'flex',altText:`${title} ใช้ไป ${money(summary.expense)} · รอข้อมูล ${summary.pending} สลิป`,contents:{type:'bubble',header,body:{type:'box',layout:'vertical',spacing:'md',contents:[...summary.byAccount.filter(a=>a.expense).map(a=>row(a.name,`ใช้ไป ${money(a.expense)}`)),row('หมวดสูงสุด',summary.byCategory.find(c=>c.expense>0)?.name??'ยังไม่มี'),{type:'text',text:`รอข้อมูล ${summary.pending} สลิป · ไม่รวมในยอด`,wrap:true,size:'xs',color:'#94703a'},...draft,{type:'text',text:syncStatus,wrap:true,size:'xs',color:'#667085'}]},footer:{type:'box',layout:'horizontal',spacing:'sm',contents:[{type:'button',flex:1,adjustMode:'shrink-to-fit',action:{type:'uri',label:'ดูสลิปรอข้อมูล',uri:`${origin}/slips`}},{type:'button',flex:1,adjustMode:'shrink-to-fit',style:'primary',color:'#5564dc',action:{type:'uri',label:'ดู Dashboard',uri:origin}}]}}};
+  const text=(value:string,extra:Partial<Extract<FlexNode,{type:'text'}>>={}):FlexNode=>({type:'text',text:value,size:'sm',color:'#253044',wrap:true,...extra});
+  const dot=(color:string):FlexNode=>({type:'box',layout:'vertical',contents:[],width:'8px',height:'8px',cornerRadius:'4px',backgroundColor:color});
+  const line=(color:string,label:string,value:string):FlexNode=>({type:'box',layout:'horizontal',spacing:'sm',alignItems:'center',contents:[dot(color),text(label,{flex:3,color:'#4a5468',wrap:false}),text(value,{flex:2,weight:'bold',align:'end',wrap:false})]});
+  const heading=(value:string):FlexNode=>text(value,{size:'xs',color:'#8a94a8',weight:'bold'});
+  // Most spending has no category, so the Flex lists accounts only. Spending only.
+  const accounts=summary.byAccount.filter(a=>a.expense).map(a=>line(a.color,a.name,money(a.expense)));
+  const notes:FlexNode[]=[text(`รอข้อมูล ${summary.pending} สลิป · ไม่รวมในยอด`,{size:'xs',color:'#94703a'})];
+  if(summary.ocr_draft?.slips)notes.push(text(`ร่าง OCR ยังไม่ตรวจ ${money(summary.ocr_draft.amount_satang)} (${summary.ocr_draft.slips} สลิป) · ไม่รวมในยอด`,{size:'xs',color:'#94703a'}));
+  if(summary.ocr_draft?.own_transfers)notes.push(text(`โอนเข้าบัญชีตัวเอง ${summary.ocr_draft.own_transfers} สลิป · ไม่รวมในยอด`,{size:'xs',color:'#94703a'}));
+  const mascotUrl=flexMascotUrl(key,origin);
+  // Compact header: title, amount and one line of detail; small mascot.
+  const header:FlexBox={type:'box',layout:'horizontal',alignItems:'center',spacing:'sm',paddingAll:'16px',backgroundColor:'#5564dc',background:{type:'linearGradient',angle:'135deg',startColor:'#4876e2',endColor:'#7756ca'},contents:[
+    {type:'box',layout:'vertical',flex:1,contents:[
+      text(title,{size:'sm',weight:'bold',color:'#e8ebff'}),
+      text(money(summary.expense),{size:'xxl',weight:'bold',color:'#ffffff'}),
+      text(`ใช้ไป · ${summary.count} รายการ`,{size:'xxs',color:'#dfe3ff'})]},
+    ...(mascotUrl?[{type:'image' as const,url:mascotUrl,size:'60px',aspectRatio:'1:1',aspectMode:'fit' as const,flex:0}]:[])]};
+  const body:FlexBox={type:'box',layout:'vertical',spacing:'md',paddingAll:'18px',contents:[
+    heading('แยกตามบัญชี'),
+    ...(accounts.length?accounts:[text('ไม่มีรายการใช้จ่ายในช่วงนี้',{size:'xs',color:'#8a94a8'})]),
+    {type:'box',layout:'vertical',spacing:'xs',margin:'md',paddingAll:'12px',cornerRadius:'12px',backgroundColor:'#fff7e8',contents:notes},
+    text(syncStatus,{size:'xxs',color:'#8a94a8'})]};
+  const footer:FlexBox={type:'box',layout:'horizontal',spacing:'sm',paddingAll:'14px',contents:[
+    {type:'button',style:'secondary',height:'sm',flex:1,adjustMode:'shrink-to-fit',action:{type:'uri',label:'ดูสลิปรอข้อมูล',uri:`${origin}/slips`}},
+    {type:'button',style:'primary',height:'sm',flex:1,adjustMode:'shrink-to-fit',color:'#5564dc',action:{type:'uri',label:'ดู Dashboard',uri:origin}}]};
+  return {type:'flex',altText:`${title} ใช้ไป ${money(summary.expense)} · รอข้อมูล ${summary.pending} สลิป`,contents:{type:'bubble',size:'mega',header,body,footer}};
 }

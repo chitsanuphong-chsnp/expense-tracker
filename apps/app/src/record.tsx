@@ -1,4 +1,5 @@
 import {QrDetails} from './qr-details';
+import {tone,toneText} from './theme';
 import React,{useEffect,useRef,useState} from 'react';
 import {View,Modal,useWindowDimensions} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,7 +13,6 @@ import {validDate} from './calendar-data';
 import {SlipImage} from './slip-image';
 import {ModalCompanion} from './modal-companion';
 
-const names={income:'รายรับ',expense:'รายจ่าย',transfer:'โอนระหว่างบัญชี'};
 const timeOf=(date:string|Date)=>new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(date));
 
 export function Record(){
@@ -22,11 +22,14 @@ export function Record(){
 function RecordForm(){
   const {reduced}=useMotion(),state=useData(),router=useRouter(),{width}=useWindowDimensions(),params=useLocalSearchParams<{id?:string;slip?:string}>();
   const old=state.data.transactions.find(t=>t.id===params.id),slip=state.data.slips.find(s=>s.id===params.slip||(!!old&&s.transaction_id===old.id));
-  const [kind,setKind]=useState<Transaction['kind']>(old?.kind??(likelyOwnTransfer(slip?.ocr_details,state.data.settings.own_names,state.data.accounts)?'transfer':'expense')),[amount,setAmount]=useState(old?String(old.amount_satang/100):slip?.ocr_details?.amount_satang!=null?String(slip.ocr_details.amount_satang/100):''),[account,setAccount]=useState(old?.account_id??state.data.accounts[0]?.id??''),[toAccount,setToAccount]=useState(old?.to_account_id??accountForMask(slip?.ocr_details?.recipient_account,state.data.accounts)?.id??''),[category,setCategory]=useState<string|null>(old?.category_id??null),[date,setDate]=useState(old?thaiDate(old.occurred_at):slip?.ocr_details?.date??thaiDate()),[time,setTime]=useState(old?timeOf(old.occurred_at):slip?.ocr_details?.time??timeOf(new Date())),[note,setNote]=useState(old?.note??''),[counterparty,setCounterparty]=useState(old?.counterparty??slip?.ocr_details?.recipient??''),[remember,setRemember]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirm,setConfirm]=useState(false),[remembered,setRemembered]=useState(false);
+  const ownHint=!old&&likelyOwnTransfer(slip?.ocr_details,state.data.settings.own_names,state.data.accounts);
+  const [amount,setAmount]=useState(old?String(old.amount_satang/100):slip?.ocr_details?.amount_satang!=null?String(slip.ocr_details.amount_satang/100):''),[account,setAccount]=useState(old?.account_id??state.data.accounts[0]?.id??''),[toAccount,setToAccount]=useState(old?.to_account_id??accountForMask(slip?.ocr_details?.recipient_account,state.data.accounts)?.id??''),[category,setCategory]=useState<string|null>(old?.category_id??null),[date,setDate]=useState(old?thaiDate(old.occurred_at):slip?.ocr_details?.date??thaiDate()),[time,setTime]=useState(old?timeOf(old.occurred_at):slip?.ocr_details?.time??timeOf(new Date())),[note,setNote]=useState(old?.note??''),[counterparty,setCounterparty]=useState(old?.counterparty??slip?.ocr_details?.recipient??''),[remember,setRemember]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirm,setConfirm]=useState(false),[remembered,setRemembered]=useState(false);
+  // No type picker: choosing one of my accounts as destination makes it a transfer; otherwise it is spending.
+  const kind:Transaction['kind']=toAccount?'transfer':old?.kind==='income'?'income':'expense';
   const id=useRef(old?.id??newId()),accountTouched=useRef(false);
   // Scope preferences to the signed-in owner; demo preferences never carry into real data.
   const preferenceKey=`expense.last-account.${state.demo?'demo':state.session?.user.id??'guest'}`;
-  useEffect(()=>{if(old){id.current=old.id;setKind(old.kind);setAmount(String(old.amount_satang/100));setAccount(old.account_id);setToAccount(old.to_account_id??'');setCategory(old.category_id);setDate(thaiDate(old.occurred_at));setTime(timeOf(old.occurred_at));setNote(old.note);setCounterparty(old.counterparty);}},[old?.id]);
+  useEffect(()=>{if(old){id.current=old.id;setAmount(String(old.amount_satang/100));setAccount(old.account_id);setToAccount(old.to_account_id??'');setCategory(old.category_id);setDate(thaiDate(old.occurred_at));setTime(timeOf(old.occurred_at));setNote(old.note);setCounterparty(old.counterparty);}},[old?.id]);
   // The masked sender number on the slip beats the per-source default (MAKE and K-PLUS can share a bank).
   const sourceAccount=accountForMask(slip?.ocr_details?.sender_account,state.data.accounts)?.id??state.data.sources.find(s=>s.source_code===slip?.source_code)?.account_id;
   useEffect(()=>{let alive=true;if(old)return;
@@ -61,10 +64,9 @@ function RecordForm(){
     <View style={{flexDirection:split?'row':'column',gap:24}}>
       {slip&&<View style={{width:split?'42%':'100%',gap:12}}><SlipImage id={slip.id} height={split?420:250}/><T style={s.muted}>ระบุวันที่ทำรายการจริง วันที่อัปโหลดอาจเป็นคนละวัน</T><QrDetails slip={slip}/>{!!slip.qr_payload&&<T selectable numberOfLines={3} style={{fontSize:10,color:C.muted}}>QR: {slip.qr_payload}</T>}</View>}
       <View style={{flex:1,minWidth:0,gap:18}}>
-        <Choices value={kind} onChange={v=>setKind(v as typeof kind)} items={Object.entries(names).filter(([id])=>id!=='income'||old?.kind==='income').map(([id,name])=>({id,name}))}/>
         <Field label="จำนวนเงิน (บาท)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.00" style={{fontFamily:'NotoLatinBold',fontSize:30,paddingVertical:18}}/>
         <View><View style={s.between}><T style={s.label}>บัญชี{kind==='transfer'?'ต้นทาง':''}</T>{remembered&&<T style={{fontSize:10,color:C.muted}}>เลือกบัญชีล่าสุดให้แล้ว</T>}</View><Choices items={state.data.accounts} value={account} onChange={value=>{accountTouched.current=true;setRemembered(false);setAccount(value);if(value===toAccount)setToAccount('');}}/></View>
-        {kind==='transfer'&&<View><T style={s.label}>บัญชีปลายทาง</T><Choices items={state.data.accounts.filter(a=>a.id!==account)} value={toAccount} onChange={setToAccount}/></View>}
+        <View><T style={s.label}>โอนเข้าบัญชีของฉันไหม</T>{ownHint&&!toAccount&&<T style={{fontSize:12,color:toneText('#94703a')}}>ผู้รับตรงกับชื่อของคุณ น่าจะโอนเข้าบัญชีตัวเอง เลือกบัญชีปลายทาง</T>}<Choices items={[{id:'',name:'ไม่ใช่ (ใช้จ่าย)'},...state.data.accounts.filter(a=>a.id!==account)]} value={toAccount} onChange={v=>setToAccount(v??'')}/></View>
         <View style={s.grid}><View style={{flexGrow:1,flexBasis:180}}><DateField label="วันที่ทำรายการ" value={date} onChange={setDate}/></View><View style={{flexGrow:1,flexBasis:120}}><Field label="เวลาไทย (HH:mm)" value={time} onChangeText={setTime} keyboardType="numbers-and-punctuation" maxLength={5}/></View></View>
         {kind!=='transfer'&&<View><T style={s.label}>หมวดหมู่</T><Choices items={[{id:'none',name:'ยังไม่จัดหมวด'},...state.data.categories]} value={category??'none'} onChange={v=>setCategory(v==='none'?null:v)}/></View>}
         <Field label="ผู้รับ / ผู้โอน / ร้านค้า" value={counterparty} onChangeText={setCounterparty}/><Field label="หมายเหตุ" value={note} onChangeText={setNote} multiline/>
@@ -72,6 +74,6 @@ function RecordForm(){
         {!!message&&<T accessibilityRole="alert" style={{color:C.red}}>{message}</T>}<ActionRow testID="record-actions">{old&&<Button secondary disabled={busy} onPress={()=>setConfirm(true)}>ลบรายการนี้</Button>}<Button loading={busy} onPress={()=>void submit()}>บันทึกรายการ</Button></ActionRow>
       </View>
     </View>
-    <Modal transparent visible={confirm} animationType={reduced?'none':'fade'} onRequestClose={()=>setConfirm(false)}><View style={{flex:1,backgroundColor:'#20305060',justifyContent:'center',padding:25}}><Card style={{maxWidth:430,width:'100%',alignSelf:'center',gap:18}}>{confirm&&<ModalCompanion title="ลบรายการนี้?" pose="thinking"/>}<T>ยอดจะถูกนำออกจากรายงาน สลิปที่เชื่อมจะกลับไปรอกรอกข้อมูล</T><ActionRow testID="modal-actions"><Button secondary onPress={()=>setConfirm(false)}>ยกเลิก</Button><Button onPress={()=>{setConfirm(false);state.remove(old!.id).then(()=>router.replace('/transactions')).catch(e=>setMessage(e.message));}}>ยืนยันลบ</Button></ActionRow></Card></View></Modal>
+    <Modal transparent visible={confirm} animationType={reduced?'none':'fade'} onRequestClose={()=>setConfirm(false)}><View style={{flex:1,backgroundColor:tone('#20305060'),justifyContent:'center',padding:25}}><Card style={{maxWidth:430,width:'100%',alignSelf:'center',gap:18}}>{confirm&&<ModalCompanion title="ลบรายการนี้?" pose="thinking"/>}<T>ยอดจะถูกนำออกจากรายงาน สลิปที่เชื่อมจะกลับไปรอกรอกข้อมูล</T><ActionRow testID="modal-actions"><Button secondary onPress={()=>setConfirm(false)}>ยกเลิก</Button><Button onPress={()=>{setConfirm(false);state.remove(old!.id).then(()=>router.replace('/transactions')).catch(e=>setMessage(e.message));}}>ยืนยันลบ</Button></ActionRow></Card></View></Modal>
   </Card>;
 }

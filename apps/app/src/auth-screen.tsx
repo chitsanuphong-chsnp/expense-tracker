@@ -1,8 +1,8 @@
 import React,{useEffect,useState} from 'react';
-import {View,ScrollView,Pressable,TextInput,Platform,useWindowDimensions,KeyboardAvoidingView,ImageBackground} from 'react-native';
+import {View,ScrollView,Pressable,TextInput,Platform,useWindowDimensions,KeyboardAvoidingView,ImageBackground,Image} from 'react-native';
 import * as Linking from 'expo-linking';
 import {useRouter,useLocalSearchParams} from 'expo-router';
-import {Wallet,Eye,EyeOff,Check,ShieldCheck} from 'lucide-react-native';
+import {Eye,EyeOff,Check,ShieldCheck} from 'lucide-react-native';
 import {T,C,s,Card,Button,ActionRow,Field,Choices} from './ui';
 import {Loading} from './motion';
 import {Mascot} from './companion';
@@ -14,7 +14,7 @@ const returnKey='expense.auth.return';
 function AuthShell({title,subtitle,children}:{title:string;subtitle:string;children:React.ReactNode}){
   const {width}=useWindowDimensions(),desktop=width>=1000;
   const hero=<View style={{width:desktop?undefined:'100%',flex:desktop?1:undefined,minWidth:0,padding:desktop?28:25,paddingTop:desktop?20:34,paddingBottom:desktop?30:38,gap:desktop?38:23}}>
-    <View style={{flexDirection:'row',alignItems:'center',gap:11}}><View style={{padding:10,backgroundColor:'#ffffff14',borderWidth:1,borderColor:'#ffffff28',borderRadius:14}}><Wallet color='#b5c4ff' size={23}/></View><T style={{fontFamily:'NotoLatinBold',fontSize:desktop?22:19,color:'white'}}>Expense Tracker</T></View>
+    <View style={{flexDirection:'row',alignItems:'center',gap:11}}><Image source={require('../assets/icon-v2-header.png')} accessibilityIgnoresInvertColors style={{width:44,height:44,borderRadius:14}}/><T style={{fontFamily:'NotoLatinBold',fontSize:desktop?22:19,color:'white'}}>Expense Tracker</T></View>
     <View style={{flexDirection:'row',alignItems:'center',gap:12}}><View style={{flex:1,minWidth:0,gap:10}}><T style={{color:'white',fontFamily:'NotoThaiBold',fontSize:desktop?38:width<350?25:29,lineHeight:desktop?54:41}}>{title}</T><T style={{color:'#b3b9cc',fontSize:desktop?15:12,lineHeight:desktop?27:21}}>{subtitle}</T></View><Mascot size={desktop?116:80} pose="idle" auto={false} interactive={false}/></View>
     {desktop&&<View style={{borderLeftWidth:2,borderColor:'#8799e3',paddingLeft:17,gap:8}}><T style={{color:'#e3e7ff',fontSize:15}}>ทุกการใช้จ่าย มีที่เก็บ</T><T style={{color:'#979fb8',fontSize:12,lineHeight:23}}>รวมบัญชี สลิป และเงินสด{ '\n' }ให้คุณเห็นภาพเงินของตัวเองได้ชัดขึ้น</T></View>}
   </View>;

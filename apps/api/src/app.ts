@@ -1,12 +1,13 @@
-import {ocrEnabled} from './ocr.ts';
+import {ocrEnabled,slipOcrDraft} from './ocr.ts';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import { randomBytes,randomUUID,createHash,timingSafeEqual } from 'node:crypto';
 import sharp from 'sharp';
-import { transactionInput,summarize,transactionsCsv,sourceCodes } from '@expense/core';
+import { transactionInput,summarize,transactionsCsv,sourceCodes,thaiDate,rangeFor,flexReport } from '@expense/core';
 import { admin,configured,checked,dataset,userDb,rows } from './db.ts';
-import { signatureValid } from './line.ts';
+import { signatureValid,pushReport } from './line.ts';
+import { decodeQr } from './qr.ts';
 import { tick,enqueueScan,pendingImportJobs } from './worker.ts';
 import { downloadFile,assertDriveOwner } from './drive.ts';
 import type {User} from '@supabase/supabase-js';
@@ -23,7 +24,9 @@ export function createApp() {
   const app=new Hono<Env>();
   app.use('/api/*',async(c,next)=>{c.header('Cache-Control','no-store');await next();});
   app.use('*',cors({origin:(origin)=>origin===process.env.APP_ORIGIN?origin:'',allowHeaders:['Authorization','Content-Type'],allowMethods:['GET','POST','PUT','PATCH','DELETE','OPTIONS']}));
-  app.onError((err,c)=>c.json({error:err instanceof z.ZodError?'INVALID_INPUT':err.message==='NOT_CONFIGURED'?'NOT_CONFIGURED':'REQUEST_FAILED'},err instanceof z.ZodError?400:503));
+  // Only fixed upper-case codes reach the client (never driver messages); the app shows them in Thai.
+  const publicCodes=new Set(['NOT_CONFIGURED','MIGRATION_REQUIRED','DATABASE_ERROR','CONFLICT','DRIVE_NOT_ENABLED_FOR_ACCOUNT','DRIVE_NOT_CONFIGURED','LINE_NOT_CONNECTED','INVALID_FILE','IMAGE_TOO_LARGE']);
+  app.onError((err,c)=>c.json({error:err instanceof z.ZodError?'INVALID_INPUT':publicCodes.has(err.message)?err.message:'REQUEST_FAILED'},err instanceof z.ZodError?400:503));
   app.get('/api/health',c=>c.json({ok:true,configured:configured(),timezone:'Asia/Bangkok'}));
   app.post('/api/internal/tick',async c=>{
     const expected=process.env.CRON_SECRET;
@@ -104,31 +107,29 @@ export function createApp() {
     checked(await db.from('jobs').upsert({owner_id:owner,job_key:`qr:${id}`,kind:'qr',payload:{slip_id:id},status:'pending',attempts:0,lease_token:null,lease_until:null,error_code:null,next_run_at:new Date().toISOString()},{onConflict:'owner_id,job_key'}));
     checked(await db.from('slips').update({status:'queued',error_code:null}).eq('id',id).eq('owner_id',owner).is('transaction_id',null).neq('status','duplicate'));return c.json({ok:true});
   });
-    app.post('/api/slips/ocr-backfill',async c=>{
-    if(!ocrEnabled())return c.json({error:'OCR_NOT_CONFIGURED'},503);
-    const owner=c.get('owner');assertDriveOwner(owner);const db=admin();
-    const slips=await rows(db,'slips',owner);
-    const pending=slips.filter(s=>!s.transaction_id&&s.status!=='duplicate'&&(!s.ocr_details||s.ocr_details.error));
-    const key=Math.floor(Date.now()/60000);
-    for(let start=0;start<pending.length;start+=100){
-      checked(await db.from('jobs').upsert(pending.slice(start,start+100).map(s=>({owner_id:owner,job_key:`ocr-backfill:${s.id}:${key}`,kind:'qr',payload:{slip_id:s.id}})),{onConflict:'owner_id,job_key',ignoreDuplicates:true}));
-    }
-    // Run now (same lease as the scheduler); the app keeps calling /api/sync/run while work remains.
-    return c.json({queued:pending.length,...await runImportNow(owner)});
-  });
-app.get('/api/slips/:id/image',async c=>{
+  app.get('/api/slips/:id/image',async c=>{
     assertDriveOwner(c.get('owner'));
     const slip=checked(await admin().from('slips').select('drive_file_id').eq('id',uuid.parse(c.req.param('id'))).eq('owner_id',c.get('owner')).maybeSingle());
-    if(!slip)return c.json({error:'NOT_FOUND'},404);
+    if(!slip?.drive_file_id)return c.json({error:'NOT_FOUND'},404);
     const image=await sharp(await downloadFile(slip.drive_file_id),{limitInputPixels:24000000}).rotate().resize({width:1400,height:2000,fit:'inside',withoutEnlargement:true}).jpeg({quality:85}).toBuffer();
     c.header('Cache-Control','private, no-store');c.header('Content-Type','image/jpeg');return c.body(new Uint8Array(image));
   });
   app.post('/api/sync',async c=>{
     const db=admin(),owner=c.get('owner');const sources=checked(await db.from('drive_sources').select('*').eq('owner_id',owner))??[];
     if(!process.env.DRIVE_OWNER_ID||owner!==process.env.DRIVE_OWNER_ID)return c.json({error:'DRIVE_NOT_ENABLED_FOR_ACCOUNT'},403);
-    // Same 5-minute key as before: repeated presses reuse the queued scan.
-    for(const source of sources)await enqueueScan(owner,source,`manual:${source.id}:${Math.floor(Date.now()/300000)}`);
-    return c.json({queued:sources.length,...await runImportNow(owner)});
+    // Any date range, all sources or one; the import start date applies only to night scans.
+    const today=thaiDate(),date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+    const body=z.object({from:date.default(today),to:date.default(today),source:z.enum(sourceCodes).nullable().default(null)}).refine(b=>b.from<=b.to).parse(await c.req.json().catch(()=>({})));
+    const chosen=sources.filter((s:any)=>!body.source||s.source_code===body.source);
+    // Same key within 5 minutes: repeated presses reuse the queued scan.
+    for(const source of chosen)await enqueueScan(owner,source,`manual:${source.id}:${body.from}:${body.to}:${Math.floor(Date.now()/300000)}`,{from:body.from,to:body.to});
+    // One button also drafts OCR for earlier slips that have none yet.
+    if(ocrEnabled()){
+      const pending=(await rows(db,'slips',owner)).filter((s:any)=>s.origin!=='upload'&&!s.transaction_id&&s.status!=='duplicate'&&(!s.ocr_details||s.ocr_details.error));
+      const key=Math.floor(Date.now()/300000);
+      for(let start=0;start<pending.length;start+=100)checked(await db.from('jobs').upsert(pending.slice(start,start+100).map((s:any)=>({owner_id:owner,job_key:`ocr-backfill:${s.id}:${key}`,kind:'qr',payload:{slip_id:s.id}})),{onConflict:'owner_id,job_key',ignoreDuplicates:true}));
+    }
+    return c.json({queued:chosen.length,...await runImportNow(owner)});
   });
   // Continues a manual import. The shared tick lease keeps it from overlapping a scheduled run.
   app.post('/api/sync/run',async c=>{
@@ -136,13 +137,30 @@ app.get('/api/slips/:id/image',async c=>{
     if(!process.env.DRIVE_OWNER_ID||owner!==process.env.DRIVE_OWNER_ID)return c.json({error:'DRIVE_NOT_ENABLED_FOR_ACCOUNT'},403);
     return c.json(await runImportNow(owner));
   });
+  // Slip photo chosen in the app: read QR + OCR now, keep no image. A Drive copy later becomes a duplicate of this slip.
+  app.post('/api/slips/upload',async c=>{
+    const owner=c.get('owner'),db=admin();
+    const body=z.object({source_code:z.enum(sourceCodes),image:z.string().min(100).max(5_500_000)}).parse(await c.req.json());
+    const bytes=Buffer.from(body.image.replace(/^data:image\/[a-z]+;base64,/,''),'base64');
+    if(bytes.length>4*1024*1024)return c.json({error:'IMAGE_TOO_LARGE'},413);
+    const qr=await decodeQr(bytes);
+    const filters=[qr.hash?`image_hash.eq.${qr.hash}`:'',qr.key?`qr_key.eq.${qr.key}`:''].filter(Boolean).join(',');
+    if(filters){
+      const existing=checked(await db.from('slips').select('id,transaction_id').eq('owner_id',owner).is('duplicate_of',null).or(filters).limit(1).maybeSingle());
+      if(existing)return c.json({duplicate:true,slip_id:existing.id,transaction_id:existing.transaction_id});
+    }
+    const now=new Date().toISOString(),ocr=ocrEnabled()?await slipOcrDraft(bytes,body.source_code,1,now):null;
+    const slip=checked(await db.from('slips').insert({owner_id:owner,source_code:body.source_code,origin:'upload',name:'อัปโหลดจากแอป',uploaded_at:now,
+      status:qr.payload?'needs_details':'qr_unreadable',image_hash:qr.hash,qr_payload:qr.payload,qr_key:qr.key,ocr_details:ocr}).select('id').single());
+    return c.json({duplicate:false,slip_id:slip!.id},201);
+  });
   app.put('/api/sources/:code',async c=>{
     if(!process.env.DRIVE_OWNER_ID||c.get('owner')!==process.env.DRIVE_OWNER_ID)return c.json({error:'DRIVE_NOT_ENABLED_FOR_ACCOUNT'},403);
     const code=z.enum(sourceCodes).parse(c.req.param('code')),body=z.object({folder_id:z.string().regex(/^[A-Za-z0-9_-]{10,200}$/),account_id:uuid.nullable()}).parse(await c.req.json());
     checked(await admin().from('drive_sources').upsert({...body,owner_id:c.get('owner'),source_code:code,cursor:null,scan_complete:false,last_scan_status:null,last_scan_at:null},{onConflict:'owner_id,source_code'}));return c.json({ok:true});
   });
   app.patch('/api/settings',async c=>{
-    const body=z.object({budget_satang:z.number().int().min(0).max(999999999999).optional(),own_names:z.array(z.string().trim().min(2).max(60)).max(5).optional()}).refine(b=>Object.keys(b).length>0).parse(await c.req.json());checked(await admin().from('profiles').update(body).eq('id',c.get('owner')));return c.json({ok:true});
+    const body=z.object({budget_satang:z.number().int().min(0).max(999999999999).optional(),own_names:z.array(z.string().trim().min(2).max(60)).max(5).optional(),import_from:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional()}).refine(b=>Object.keys(b).length>0).parse(await c.req.json());checked(await admin().from('profiles').update(body).eq('id',c.get('owner')));return c.json({ok:true});
   });
   app.patch('/api/accounts/:id/numbers',async c=>{
     const body=z.object({numbers:z.array(z.string().regex(/^[0-9]{10,15}$/)).max(3)}).parse(await c.req.json());
@@ -159,6 +177,37 @@ app.get('/api/slips/:id/image',async c=>{
   app.post('/api/rules',async c=>{
     const body=z.object({counterparty:z.string().trim().min(1).max(200),category_id:uuid}).parse(await c.req.json());
     checked(await admin().from('category_rules').upsert({...body,owner_id:c.get('owner')},{onConflict:'owner_id,counterparty'}));return c.json({ok:true});
+  });
+  app.patch('/api/accounts/:id',async c=>{
+    const body=z.object({name:z.string().trim().min(1).max(100)}).parse(await c.req.json());
+    checked(await admin().from('accounts').update(body).eq('id',uuid.parse(c.req.param('id'))).eq('owner_id',c.get('owner')));return c.json({ok:true});
+  });
+  app.delete('/api/accounts/:id',async c=>{
+    const r=await userDb(c.get('token')).rpc('delete_account',{p_id:uuid.parse(c.req.param('id'))});
+    if(r.error?.message.includes('ACCOUNT_IN_USE'))return c.json({error:'ACCOUNT_IN_USE'},409);
+    checked(r);return c.json({ok:true});
+  });
+  app.patch('/api/categories/:id',async c=>{
+    const body=z.object({name:z.string().trim().min(1).max(100)}).parse(await c.req.json());
+    checked(await admin().from('categories').update(body).eq('id',uuid.parse(c.req.param('id'))).eq('owner_id',c.get('owner')));return c.json({ok:true});
+  });
+  app.delete('/api/categories/:id',async c=>{checked(await userDb(c.get('token')).rpc('delete_category',{p_id:uuid.parse(c.req.param('id'))}));return c.json({ok:true});});
+  app.delete('/api/rules/:id',async c=>{checked(await admin().from('category_rules').delete().eq('id',uuid.parse(c.req.param('id'))).eq('owner_id',c.get('owner')));return c.json({ok:true});});
+  // Deletes all transactions and slips (not Drive files or setup); night scans then start from import_from.
+  app.post('/api/reset',async c=>{
+    const body=z.object({import_from:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().default(thaiDate())}).parse(await c.req.json().catch(()=>({})));
+    const r=await userDb(c.get('token')).rpc('reset_transactions_and_slips',{p_import_from:body.import_from});
+    if(r.error?.message.includes('IMPORT_RUNNING'))return c.json({error:'IMPORT_RUNNING'},409);
+    checked(r);return c.json({ok:true});
+  });
+  // Test message: today's spending so far, sent now. Not stored as a report; scheduled reports are unaffected.
+  app.post('/api/line/test',async c=>{
+    const owner=c.get('owner'),db=admin();
+    const connection=checked(await db.from('line_connections').select('line_user_id,blocked').eq('owner_id',owner).maybeSingle());
+    if(!connection||connection.blocked)return c.json({error:'LINE_NOT_CONNECTED'},409);
+    const today=thaiDate(),day=rangeFor(today,'day'),summary=summarize(await dataset(db,owner),day.start,new Date().toISOString(),day.end);
+    await pushReport(connection.line_user_id,flexReport(summary,`day:${today}`,process.env.APP_ORIGIN!,'ข้อความทดสอบ · ยอดวันนี้ถึงตอนนี้'),randomUUID());
+    return c.json({ok:true});
   });
   app.post('/api/line/link-code',async c=>{
     const db=admin(),owner=c.get('owner'),code=randomBytes(10).toString('hex').toUpperCase();

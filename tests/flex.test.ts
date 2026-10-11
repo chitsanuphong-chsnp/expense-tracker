@@ -28,7 +28,7 @@ it.each(['http://localhost:8081','https://localhost','https://127.0.0.1','https:
   expect(flexMascotUrl(periods.day.key,origin)).toBeNull();
   const message=flexReport(example('day'),periods.day.key,origin,'ตรวจสำเร็จ');
   expect(message.contents.header.contents.some(node=>node.type==='image')).toBe(false);
-  expect(texts(message.contents.header.contents)).toContain('ใช้ไป');
+  expect(texts(message.contents.header.contents).some(t=>t.startsWith('ใช้ไป'))).toBe(true);
 });
 it('uses a stable public artwork path without forwarding URL credentials or query data',()=>{
   expect(flexMascotUrl(periods.day.key,'https://app.example/nested/?token=private#section')).toBe('https://app.example/line/mascot-reading-v2.png');

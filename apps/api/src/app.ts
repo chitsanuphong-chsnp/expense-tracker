@@ -8,7 +8,7 @@ import { transactionInput,summarize,transactionsCsv,sourceCodes,thaiDate,rangeFo
 import { admin,configured,checked,dataset,userDb,rows } from './db.ts';
 import { signatureValid,pushReport } from './line.ts';
 import { decodeQr } from './qr.ts';
-import { tick,enqueueScan,pendingImportJobs,importProgress } from './worker.ts';
+import { tick,enqueueScan,pendingImportJobs,importProgress,cancelImport } from './worker.ts';
 import { downloadFile,assertDriveOwner } from './drive.ts';
 import type {User} from '@supabase/supabase-js';
 import {verifiedUser,accountInfo} from './auth-user.ts';
@@ -131,6 +131,7 @@ export function createApp() {
     }
     return c.json({queued:chosen.length,...await runImportNow(owner)});
   });
+  app.post('/api/sync/cancel',async c=>c.json({cancelled:await cancelImport(c.get('owner'))}));
   // Polled by the app's progress bar while an import runs (read only).
   app.get('/api/sync/status',async c=>{
     const since=z.string().datetime().parse(c.req.query('since'));

@@ -146,6 +146,12 @@ export async function importProgress(owner:string,since:string) {
   const [pending,done,slips]=await Promise.all([count(jobs().in('status',['pending','running'])),count(jobs().in('status',['done','failed']).gte('created_at',since)),count(db.from('jobs').select('id',{count:'exact',head:true}).eq('owner_id',owner).eq('kind','qr').gte('created_at',since))]);
   return {pending,done,slips};
 }
+// The app's cancel button: drop this owner's queued scan/QR jobs. A job already running finishes its current step;
+// its final status update then finds no row. Slips already imported stay.
+export async function cancelImport(owner:string) {
+  const r=await admin().from('jobs').delete({count:'exact'}).eq('owner_id',owner).in('kind',['scan','qr']).in('status',['pending','running']);
+  checked(r);return r.count??0;
+}
 export async function pendingImportJobs(owner:string) {
   const r=await admin().from('jobs').select('id',{count:'exact',head:true}).eq('owner_id',owner).in('kind',['scan','qr']).in('status',['pending','running']);
   checked(r);return r.count??0;

@@ -18,9 +18,9 @@ function hex(h:number,s:number,l:number,alpha:string){
   const [r,g,b]=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x];
   return '#'+[r,g,b].map(v=>Math.round((v+m)*255).toString(16).padStart(2,'0')).join('')+alpha;
 }
-// Dark palette: slate surfaces (#171c2a cards on a #0f1320 page). Light tints become that slate with a hint of
+// Dark palette: charcoal surfaces (#161920 cards on a #0c0e13 page). Light tints become that slate with a hint of
 // their hue (not darkened color, which turns amber/green muddy); dark ink turns light; accents get brighter.
-const card=[23,28,42];
+const card=[22,25,32];
 function mixHint(h:number,amount:number,lift:number,alpha:string){
   const accent=hex(h,0.62,0.58,'').slice(1),a=[0,2,4].map(i=>parseInt(accent.slice(i,i+2),16));
   return '#'+card.map((c,i)=>Math.round(Math.min(255,c+lift+(a[i]-c)*amount)).toString(16).padStart(2,'0')).join('')+alpha;
@@ -28,7 +28,7 @@ function mixHint(h:number,amount:number,lift:number,alpha:string){
 export function tone(color:string):string{
   if(!dark||!(color==='white'||/^#[0-9a-fA-F]{3,8}$/.test(color)))return color;
   const {h,s,l,alpha}=parse(color);
-  if(l>=0.8)return s<0.25?mixHint(225,0,Math.round((1-l)*90),alpha):mixHint(h,0.1,Math.round((1-l)*40),alpha);
+  if(l>=0.8)return s<0.25?mixHint(225,0,Math.round((1-l)*80),alpha):mixHint(h,0.1,Math.round((1-l)*40),alpha);
   if(l<=0.35)return hex(h,Math.min(s,0.18),0.9-l*0.2,alpha);
   return hex(h,Math.min(s,0.75),Math.min(0.76,l+0.16),alpha);
 }
@@ -38,4 +38,4 @@ export function toneText(color:string):string{
   return /^#[0-9a-fA-F]{3,8}$/.test(color)&&parse(color).l>0.75?color:tone(color);
 }
 // Pale chart bars would glare on dark cards: use a calm indigo instead.
-export function barColor(color:string){return dark?'#3f4778':color;}
+export function barColor(color:string){return dark?'#3a3f63':color;}

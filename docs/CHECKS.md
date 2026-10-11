@@ -128,3 +128,13 @@ Patched image processing to sharp 0.35.5 and tests to Vitest 5.0.3. The installe
 - Typecheck, 100 tests, API/Web build passed.
 
 - LINE Flex redesign: compact gradient header (linearGradient box background with solid fallback) with title, amount, item count and a 60 px mascot; accounts with colour dots (no categories or share bars, since most spending is uncategorised); tinted status box (pending, OCR draft, own transfers); secondary/primary buttons. In-app preview renders the same payload (gradient, radius, padding, widths) on a light bubble in both themes. Payload under 30 KB (test).
+
+## 11 Oct 2026 (later): no "จ่าย" wording, number-free opening animation
+- Every remaining "จ่าย" in the app, the Flex empty state and the docs now reads "ใช้ไป" (e.g. "ยังไม่มียอดใช้ไปในช่วงนี้", picker "ไม่ใช่ (ใช้ไป)", demo category "ทั่วไป").
+- Opening animation trimmed to the final scene: gradient, wallet icon pops with a spreading ring, bars grow one by one, title rises, then fade. No amounts, no slip card (~2.2 s).
+
+## 11 Oct 2026: light by default, dark mode on every screen, story opening animation
+- Default theme is light; dark or system is opt-in per device.
+- Dark audit of every screen and modal (home, transactions, record, calendar, slips + detail, reports, each settings section, LINE preview, notification, account): fixed the transactions list staying white (a background routed through the text helper), glaring home chart bars, and pale primary buttons (separate deeper button colour). Palette moved to charcoal (#0c0e13 page, #161920 cards).
+- Opening animation now shows the app's flow: a slip slides in, a scan line reads it and a "✓ อ่านแล้ว" tick appears, it files into the wallet icon, today's spending counts up with a small chart, then the title. The mascot (reading pose) stands beside the slip without moving. The pre-font frame uses the same gradient so there is no flash. Colour changes use opacity only, so the native driver works on phones. Frames checked at 600–3300 ms; no console errors.
+

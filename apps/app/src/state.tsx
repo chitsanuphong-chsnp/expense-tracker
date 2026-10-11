@@ -20,7 +20,7 @@ const empty:Dataset={accounts:[],categories:[],transactions:[],slips:[],sources:
 export function newId(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const n=Math.floor(Math.random()*16);return(c==='x'?n:(n&3)|8).toString(16);});}
 function demoData():Dataset {
   const accounts=[['ttb','bank','#5575e7','011'],['K-PLUS','bank','#34ac95','004'],['Krungthai','bank','#5ba7dc','006'],['MAKE','bank','#9d7ae5','004'],['เงินสด','cash','#e6ad4b',null]].map(([name,kind,color,bank_code])=>({id:newId(),name:name!,kind:kind as 'bank'|'cash',color:color!,bank_code}));
-  const categories=[['อาหาร','#e4a055'],['เครื่องดื่ม','#b488de'],['เดินทาง','#6b99e2'],['Shopping','#df81a5'],['ค่าใช้จ่ายทั่วไป','#8ca3b5']].map(([name,color])=>({id:newId(),name,color}));
+  const categories=[['อาหาร','#e4a055'],['เครื่องดื่ม','#b488de'],['เดินทาง','#6b99e2'],['Shopping','#df81a5'],['ทั่วไป','#8ca3b5']].map(([name,color])=>({id:newId(),name,color}));
   const today=thaiDate();const transactions:Dataset['transactions']=[];
   for(let day=6;day>=0;day--){const date=thaiDate(new Date(new Date(`${today}T12:00:00+07:00`).getTime()-day*86400000));
     for(let i=0;i<3;i++)transactions.push({id:newId(),kind:'expense',amount_satang:[8500,6500,12000][i]+day*1200,account_id:accounts[(day+i)%5].id,to_account_id:null,category_id:categories[i].id,occurred_at:new Date(`${date}T${['09','12','18'][i]}:30:00+07:00`).toISOString(),note:['มื้อเช้า','กาแฟและเครื่องดื่ม','เดินทางกลับบ้าน'][i],counterparty:['ร้านอาหาร','ร้านกาแฟ','รถโดยสาร'][i],source:'manual'});

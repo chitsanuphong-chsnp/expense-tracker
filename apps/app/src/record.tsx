@@ -3,7 +3,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {View,Modal,useWindowDimensions} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useRouter,useLocalSearchParams} from 'expo-router';
-import {parseMoney,thaiDate,transactionInput,type Transaction} from '@expense/core';
+import {parseMoney,thaiDate,transactionInput,likelyOwnTransfer,accountForMask,type Transaction} from '@expense/core';
 import {useData,newId} from './state';
 import {T,Card,Button,ActionRow,Field,Choices,Badge,C,s} from './ui';
 import {useMotion} from './motion';
@@ -22,12 +22,13 @@ export function Record(){
 function RecordForm(){
   const {reduced}=useMotion(),state=useData(),router=useRouter(),{width}=useWindowDimensions(),params=useLocalSearchParams<{id?:string;slip?:string}>();
   const old=state.data.transactions.find(t=>t.id===params.id),slip=state.data.slips.find(s=>s.id===params.slip||(!!old&&s.transaction_id===old.id));
-  const [kind,setKind]=useState<Transaction['kind']>(old?.kind??'expense'),[amount,setAmount]=useState(old?String(old.amount_satang/100):slip?.ocr_details?.amount_satang!=null?String(slip.ocr_details.amount_satang/100):''),[account,setAccount]=useState(old?.account_id??state.data.accounts[0]?.id??''),[toAccount,setToAccount]=useState(old?.to_account_id??''),[category,setCategory]=useState<string|null>(old?.category_id??null),[date,setDate]=useState(old?thaiDate(old.occurred_at):slip?.ocr_details?.date??thaiDate()),[time,setTime]=useState(old?timeOf(old.occurred_at):slip?.ocr_details?.time??timeOf(new Date())),[note,setNote]=useState(old?.note??''),[counterparty,setCounterparty]=useState(old?.counterparty??slip?.ocr_details?.recipient??''),[remember,setRemember]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirm,setConfirm]=useState(false),[remembered,setRemembered]=useState(false);
+  const [kind,setKind]=useState<Transaction['kind']>(old?.kind??(likelyOwnTransfer(slip?.ocr_details,state.data.settings.own_names,state.data.accounts)?'transfer':'expense')),[amount,setAmount]=useState(old?String(old.amount_satang/100):slip?.ocr_details?.amount_satang!=null?String(slip.ocr_details.amount_satang/100):''),[account,setAccount]=useState(old?.account_id??state.data.accounts[0]?.id??''),[toAccount,setToAccount]=useState(old?.to_account_id??accountForMask(slip?.ocr_details?.recipient_account,state.data.accounts)?.id??''),[category,setCategory]=useState<string|null>(old?.category_id??null),[date,setDate]=useState(old?thaiDate(old.occurred_at):slip?.ocr_details?.date??thaiDate()),[time,setTime]=useState(old?timeOf(old.occurred_at):slip?.ocr_details?.time??timeOf(new Date())),[note,setNote]=useState(old?.note??''),[counterparty,setCounterparty]=useState(old?.counterparty??slip?.ocr_details?.recipient??''),[remember,setRemember]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirm,setConfirm]=useState(false),[remembered,setRemembered]=useState(false);
   const id=useRef(old?.id??newId()),accountTouched=useRef(false);
   // Scope preferences to the signed-in owner; demo preferences never carry into real data.
   const preferenceKey=`expense.last-account.${state.demo?'demo':state.session?.user.id??'guest'}`;
   useEffect(()=>{if(old){id.current=old.id;setKind(old.kind);setAmount(String(old.amount_satang/100));setAccount(old.account_id);setToAccount(old.to_account_id??'');setCategory(old.category_id);setDate(thaiDate(old.occurred_at));setTime(timeOf(old.occurred_at));setNote(old.note);setCounterparty(old.counterparty);}},[old?.id]);
-  const sourceAccount=state.data.sources.find(s=>s.source_code===slip?.source_code)?.account_id;
+  // The masked sender number on the slip beats the per-source default (MAKE and K-PLUS can share a bank).
+  const sourceAccount=accountForMask(slip?.ocr_details?.sender_account,state.data.accounts)?.id??state.data.sources.find(s=>s.source_code===slip?.source_code)?.account_id;
   useEffect(()=>{let alive=true;if(old)return;
     setRemembered(false);
     if(sourceAccount&&state.data.accounts.some(a=>a.id===sourceAccount)){if(!accountTouched.current)setAccount(sourceAccount);return;}

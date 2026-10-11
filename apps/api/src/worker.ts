@@ -1,9 +1,9 @@
-import {ocrEnabled,readSlipOcr} from './ocr.ts';
+import {ocrEnabled,slipOcrDraft} from './ocr.ts';
 import { admin,checked,dataset } from './db.ts';
 import { listFolder,downloadFile,assertDriveOwner } from './drive.ts';
 import { decodeQr } from './qr.ts';
 import { flexReport,pushReport } from './line.ts';
-import { shouldScan,dueReportPeriods,summarize,bangkokParts,rangeFor } from '@expense/core';
+import { shouldScan,dueReportPeriods,summarize,bangkokParts,dailyPendingWindow } from '@expense/core';
 
 export async function enqueueScan(owner:string,source:any,key:string) {
   const db=admin();checked(await db.from('jobs').upsert({owner_id:owner,job_key:key,kind:'scan',payload:{source_id:source.id}},{onConflict:'owner_id,job_key',ignoreDuplicates:true}));
@@ -51,7 +51,7 @@ async function qr(owner:string,id:string) {
   if(ocrEnabled()){
     const latest=checked(await db.from('slips').select('status,transaction_id').eq('id',id).eq('owner_id',owner).single());
     if(latest&&latest.status!=='duplicate'&&!latest.transaction_id){
-      let draft;try{draft=await readSlipOcr(bytes,slip.source_code);}catch{draft={engine:process.env.OCR_ENGINE??'tesseract',amount_satang:null,date:null,time:null,sender:null,recipient:null,requires_review:true,error:'OCR_FAILED'};}
+      const draft=await slipOcrDraft(bytes,slip.source_code,1,new Date(slip.uploaded_at).toISOString());
       checked(await db.from('slips').update({ocr_details:draft}).eq('id',id).eq('owner_id',owner).is('transaction_id',null).neq('status','duplicate'));
     }
   }
@@ -62,10 +62,10 @@ async function sendReport(owner:string,period:any) {
   let report=checked(await db.from('reports').select('*').eq('owner_id',owner).eq('report_key',period.key).maybeSingle());
   if(report?.status==='sent')return;
   if(!report) {
-    const data=await dataset(db,owner),pendingEnd=period.kind==='day'?rangeFor(period.key.slice(4),'day').end:period.end;
-    const uploaded=data.slips.filter(s=>new Date(s.uploaded_at).getTime()>=new Date(period.start).getTime()&&new Date(s.uploaded_at).getTime()<new Date(pendingEnd).getTime()).length;
+    const data=await dataset(db,owner),pendingWindow=period.kind==='day'?dailyPendingWindow(period.key.slice(4)):{start:period.start,end:period.end};
+    const uploaded=data.slips.filter(s=>new Date(s.uploaded_at).getTime()>=new Date(pendingWindow.start).getTime()&&new Date(s.uploaded_at).getTime()<new Date(pendingWindow.end).getTime()).length;
     const syncStatus=!data.sources.length?'ยังไม่ได้เชื่อม Drive':data.sources.some(s=>s.last_scan_status==='failed')?'ตรวจ Drive ไม่สำเร็จ · ยอดอาจไม่ครบ':data.sources.some(s=>!s.scan_complete)?'กำลังตรวจ Drive · ยอดอาจไม่ครบ':uploaded?'ตรวจ Drive สำเร็จตามรอบล่าสุด':'ตรวจ Drive สำเร็จ · ไม่พบสลิปที่อัปโหลดในช่วงนี้';
-    const snapshot={...summarize(data,period.start,period.end,pendingEnd),sync_status:syncStatus};
+    const snapshot={...summarize(data,period.start,period.end,pendingWindow.end,pendingWindow.start),sync_status:syncStatus};
     report=checked(await db.from('reports').insert({owner_id:owner,report_key:period.key,period_start:period.start,period_end:period.end,snapshot}).select('*').single());
   }
   const status=report.snapshot.sync_status??'สถานะการตรวจ Drive ไม่พร้อม';

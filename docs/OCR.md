@@ -28,4 +28,7 @@ OCR never creates financial transactions automatically in this version. Directio
 
 Create a Python 3.12 virtual environment and install `services/ocr/requirements.txt`; set OCR_PYTHON to its Python executable. The first prediction downloads the official PP-OCRv5_mobile_det and th_PP-OCRv5_mobile_rec models. `services/ocr/infer.py` uses CPU and keeps log output away from the structured response. Temporary image files are removed after inference. Keep real slips and raw OCR outputs out of Git.
 
-Paddle requires a Python-capable worker. This local setup does not install Python in Vercel or deploy a free OCR host. Cloud OCR hosting and scheduling remain a separate deployment step. Tesseract's Node path is available with `OCR_ENGINE=tesseract`; its language models are downloaded on first use.
+Paddle requires a Python-capable worker. Vercel has no Python, so cloud OCR runs on GitHub Actions (`.github/workflows/slip-ocr.yml`, free for this public repository) at 01:30 Bangkok with a check-first 06:45 backup. Setup is in SETUP.md section 6.1. It reuses `readSlipOcr` and the same parser, logs counts only, and retries a failed slip at most three times. Tesseract's Node path is available with `OCR_ENGINE=tesseract`; its language models are downloaded on first use.
+## Accuracy check on all Drive slips (local, read-only)
+
+`npx tsx --env-file=apps/api/.env scripts/ocr-eval.ts [limit]` lists every image in the configured Drive folders, runs the configured OCR engine, and writes `.local/ocr-eval.csv` (gitignored). For slips already recorded as transactions it compares OCR amount, date and time with the recorded values and prints match counts. It never writes to the database. Keep the CSV private.

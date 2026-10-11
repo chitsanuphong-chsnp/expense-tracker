@@ -12,7 +12,7 @@ const repo=fileURLToPath(new URL('../../../',import.meta.url));
 let tail:Promise<unknown>=Promise.resolve();
 let worker:ReturnType<typeof createWorker>|undefined;
 export function ocrEnabled(){return process.env.OCR_ENABLED==='true';}
-export async function readSlipOcr(bytes:Buffer,bank:SourceCode):Promise<OcrDraft>{
+export async function readSlipOcr(bytes:Buffer,bank:SourceCode,uploadedAt?:string):Promise<OcrDraft>{
  if(!ocrEnabled())throw Error('OCR_NOT_CONFIGURED');
  const work=async()=>{
   const engine=process.env.OCR_ENGINE??'tesseract';let text:string;
@@ -32,8 +32,13 @@ export async function readSlipOcr(bytes:Buffer,bank:SourceCode):Promise<OcrDraft
    await w.setParameters({tessedit_pageseg_mode:PSM.SPARSE_TEXT});
    const result=await w.recognize(bytes);text=result.data.text;
   }else throw Error('OCR_ENGINE_UNSUPPORTED');
-  return {...extractFields(text,bank),engine};
+  return {...extractFields(text,bank,uploadedAt),engine};
  };
  // Serialize CPU work to avoid parallel worker/model memory spikes.
  const result=tail.then(work,work);tail=result.catch(()=>{});return result;
+}
+// A failed read still stores a retryable draft marker; QR results are unaffected.
+export async function slipOcrDraft(bytes:Buffer,bank:SourceCode,attempts=1,uploadedAt?:string):Promise<OcrDraft>{
+ try{return await readSlipOcr(bytes,bank,uploadedAt);}
+ catch{return {engine:process.env.OCR_ENGINE??'tesseract',amount_satang:null,date:null,time:null,sender:null,recipient:null,requires_review:true,error:'OCR_FAILED',attempts};}
 }

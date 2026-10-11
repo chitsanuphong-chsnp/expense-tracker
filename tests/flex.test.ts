@@ -11,6 +11,8 @@ it.each(['day','week','month'] as const)('uses a consistent %s summary for the w
   expect(summary.net).toBe(summary.income-summary.expense);
   expect(texts(message.contents.body.contents)).toContain(`รอข้อมูล ${summary.pending} สลิป · ไม่รวมในยอด`);
   expect(texts(message.contents.body.contents)).toContain('ตรวจ Drive ไม่สำเร็จ');
+  // Spending only: no income, net or per-account income in LINE.
+  expect(texts(message.contents.body.contents).some(t=>/รายรับ|เงินสุทธิ|รับ ฿/.test(t))).toBe(false);
   expect(message.contents.footer.contents).toEqual(expect.arrayContaining([expect.objectContaining({action:{type:'uri',label:'ดูสลิปรอข้อมูล',uri:'https://app.example/slips'}})]));
   expect(new TextEncoder().encode(JSON.stringify(message.contents)).byteLength).toBeLessThan(30000);
 });
@@ -30,4 +32,15 @@ it.each(['http://localhost:8081','https://localhost','https://127.0.0.1','https:
 });
 it('uses a stable public artwork path without forwarding URL credentials or query data',()=>{
   expect(flexMascotUrl(periods.day.key,'https://app.example/nested/?token=private#section')).toBe('https://app.example/line/mascot-reading-v2.png');
+});
+it('titles daily reports by date and shows unreviewed OCR drafts apart from totals',()=>{
+  const summary={...example('day'),ocr_draft:{amount_satang:125000,slips:5}};
+  const message=flexReport(summary,'day:2026-10-10','https://app.example','ตรวจสำเร็จ');
+  expect(texts(message.contents.header.contents)).toContain('สรุปวันที่ 10 ต.ค.');
+  expect(texts(message.contents.body.contents).find(t=>t.startsWith('ร่าง OCR'))).toMatch(/^ร่าง OCR ยังไม่ตรวจ .*1,250.* \(5 สลิป\) · ไม่รวมในยอด$/);
+  expect(texts(message.contents.body.contents).some(t=>t.startsWith('โอนเข้าบัญชีตัวเอง'))).toBe(false);
+  const own=flexReport({...summary,ocr_draft:{amount_satang:125000,slips:5,own_transfers:2}},'day:2026-10-10','https://app.example','ตรวจสำเร็จ');
+  expect(texts(own.contents.body.contents)).toContain('โอนเข้าบัญชีตัวเอง 2 สลิป · ไม่รวมในยอด');
+  const none=flexReport({...summary,ocr_draft:{amount_satang:0,slips:0}},'day:2026-10-10','https://app.example','ตรวจสำเร็จ');
+  expect(texts(none.contents.body.contents).some(t=>t.startsWith('ร่าง OCR'))).toBe(false);
 });

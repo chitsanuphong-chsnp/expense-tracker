@@ -17,8 +17,8 @@ export async function rows(db:SupabaseClient,table:string,owner:string) {
 export async function dataset(db:SupabaseClient,owner:string):Promise<Dataset> {
   const [accounts,categories,transactions,slips,sources,reports,rules,profile,line]=await Promise.all([
     rows(db,'accounts',owner),rows(db,'categories',owner),rows(db,'transactions',owner),rows(db,'slips',owner),rows(db,'drive_sources',owner),rows(db,'reports',owner),rows(db,'category_rules',owner),
-    db.from('profiles').select('budget_satang').eq('id',owner).single(),db.from('line_connections').select('blocked').eq('owner_id',owner).maybeSingle()
+    db.from('profiles').select('*').eq('id',owner).single(),db.from('line_connections').select('blocked').eq('owner_id',owner).maybeSingle()
   ]);
   checked(profile);checked(line);
-  return {accounts,categories,transactions:transactions.map(t=>({...t,amount_satang:Number(t.amount_satang),occurred_at:new Date(t.occurred_at).toISOString()})),slips:slips.map(s=>({...s,qr_details:extractSlipQr(s.qr_payload),uploaded_at:new Date(s.uploaded_at).toISOString()})),sources,reports:reports.map(r=>({...r,period_start:new Date(r.period_start).toISOString(),period_end:new Date(r.period_end).toISOString()})),rules,settings:{budget_satang:Number(profile.data?.budget_satang??0),line_connected:!!line.data,line_blocked:!!line.data?.blocked}};
+  return {accounts,categories,transactions:transactions.map(t=>({...t,amount_satang:Number(t.amount_satang),occurred_at:new Date(t.occurred_at).toISOString()})),slips:slips.map(s=>({...s,qr_details:extractSlipQr(s.qr_payload),uploaded_at:new Date(s.uploaded_at).toISOString()})),sources,reports:reports.map(r=>({...r,period_start:new Date(r.period_start).toISOString(),period_end:new Date(r.period_end).toISOString()})),rules,settings:{budget_satang:Number(profile.data?.budget_satang??0),own_names:profile.data?.own_names??[],line_connected:!!line.data,line_blocked:!!line.data?.blocked}};
 }

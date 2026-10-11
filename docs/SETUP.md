@@ -66,7 +66,7 @@ npm run dev
 
 ## 3. Google Drive เดิม
 
-ใช้ Shortcuts และ Apps Script ที่ทำงานแล้วต่อได้ **ไม่ต้องเปลี่ยน URL หรืออัปโหลดผ่าน Backend เพิ่ม**
+ใช้ Shortcuts และ Apps Script ที่ทำงานแล้วต่อได้ **ไม่ต้องเปลี่ยน URL หรืออัปโหลดผ่าน Backend เพิ่ม** ตั้ง automation ใน Shortcuts ให้อัปโหลดทุกวันเวลา **23:30**
 
 1. สร้าง Google Cloud project และเปิด Google Drive API
 2. สร้าง service account และคีย์ JSON แล้วตั้งค่า email/private_key ใน Backend เท่านั้น เก็บไฟล์ JSON นอก repo ตั้ง `DRIVE_OWNER_ID` เป็น UUID บัญชีของคุณจาก Supabase Authentication → Users เพื่อผูก service account กับบัญชีหลัก บัญชีอื่นจะใส่ folder ID ของคุณเพื่ออ่านข้อมูลไม่ได้
@@ -120,7 +120,7 @@ Flex รายวัน/สัปดาห์/เดือนมีรูปน�
 
 ตารางส่งตามเวลา Asia/Bangkok:
 
-- รายวัน 23:15: ยอดธุรกรรมวันนี้ก่อน 23:00 และสลิปรอข้อมูลที่อัปโหลดวันนี้รวมรอบ 23:00
+- รายวัน 08:00: ยอดธุรกรรมทั้งวันของเมื่อวาน (00:00–24:00) สลิปรอข้อมูลที่อัปโหลดตั้งแต่ 08:00 เมื่อวานถึง 08:00 วันนี้ และร่าง OCR ที่ยังไม่ตรวจแสดงแยก ไม่รวมในยอด
 - รายสัปดาห์ จันทร์ 08:00: สัปดาห์จันทร์–อาทิตย์ก่อนหน้า
 - รายเดือน วันที่ 1 เวลา 08:00: เดือนก่อนหน้า
 
@@ -145,9 +145,27 @@ select id, status_code, timed_out, error_msg from net._http_response order by id
 select kind, status, error_code, attempts, next_run_at from public.jobs order by created_at desc limit 30;
 ```
 
-ตรวจ Drive ช่วง 23:05–23:55 ทุก 5 นาที และ 07:05 อีกรอบ งานที่มีคิวค้าง retry และรายงานที่ตกค้างยังทำต่อใน tick รอบอื่นได้ global lease หมดอายุหลัง 6 นาที (นานกว่า timeout ของ Vercel) และ job lease หลัง 4 นาที รายงานวันย้อนหลัง catch up สูงสุด 7 วัน เฉพาะช่วงหลังเริ่มบัญชี
+ตรวจ Drive ช่วง 23:35–00:30 ทุก 5 นาที (หลังมือถืออัปโหลด 23:30) และรอบสำรอง 06:30–06:35 ซึ่งเพิ่มเฉพาะไฟล์ที่รอบหลักยังไม่เจอ งานที่มีคิวค้าง retry และรายงานที่ตกค้างยังทำต่อใน tick รอบอื่นได้ global lease หมดอายุหลัง 6 นาที (นานกว่า timeout ของ Vercel) และ job lease หลัง 4 นาที รายงานวันย้อนหลัง catch up สูงสุด 7 วัน เฉพาะช่วงหลังเริ่มบัญชี
 
 เมื่อ deploy และ Cron พร้อม ปิดคอมและแอปได้ งานรันบน Cloud ทดสอบจริงด้วยการอัปโหลดสลิป ดูสถานะนำเข้าและรับ LINE หนึ่งรอบก่อนใช้ประจำ
+
+## 6.1 OCR บน GitHub Actions (ฟรี)
+
+รัน `supabase/migrations/005_own_identity.sql` ใน SQL Editor ก่อน (ช่อง "ชื่อของฉันบนสลิป" และ "เลขบัญชีบนสลิป") แล้วตรวจด้วย `supabase/check-migrations.sql`
+
+`.github/workflows/slip-ocr.yml` ใช้ PaddleOCR อ่านร่างยอด/วันเวลาของสลิปที่ยังไม่บันทึก แล้วเขียนลง `slips.ocr_details` ไม่สร้างรายการเงินเอง
+
+| รอบ (เวลาไทย) | ทำอะไร |
+|---|---|
+| 01:30 หลัก | อ่านสลิปที่ยังไม่มีร่าง |
+| 06:45 สำรอง | เช็กก่อน ถ้าไม่มีสลิปค้างจบทันที ไม่ติดตั้ง Paddle |
+
+1. GitHub repo → Settings → Secrets and variables → Actions → New repository secret ใส่ค่าเดียวกับ Backend: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`, `DRIVE_OWNER_ID`
+2. Workflow แบบตั้งเวลาทำงานเฉพาะบน default branch (`main`) ต้อง merge ก่อน
+3. ทดสอบ: Actions → Slip OCR → Run workflow แล้วเปิดหน้าสลิปในแอปดูร่าง
+4. Vercel ไม่ต้องเปิด OCR (`OCR_ENABLED=false`) ปุ่ม "อ่าน OCR สลิปที่ค้าง" ในแอปใช้กับ API ในเครื่องที่เปิด OCR เท่านั้น
+
+Repo นี้เป็น public log ของ Actions ทุกคนเปิดดูได้ runner พิมพ์เฉพาะจำนวน ห้ามเพิ่ม log ที่มีข้อความ ยอด ชื่อ หรือ ID ของสลิป อ่านไม่สำเร็จซ้ำได้สูงสุด 3 ครั้งต่อใบ GitHub อาจเลื่อนเวลารอบตั้งเวลาช่วงคนใช้เยอะ และปิด schedule อัตโนมัติถ้า repo public ไม่มีความเคลื่อนไหว 60 วัน
 
 ## 7. Expo Go / มือถือ
 

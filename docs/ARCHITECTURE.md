@@ -2,7 +2,7 @@
 
 ```mermaid
 flowchart LR
-    A[iPhone Photos / 4 albums] --> B[Shortcuts 23:00]
+    A[iPhone Photos / 4 albums] --> B[Shortcuts 23:30]
     B --> C[Existing Apps Script]
     C --> D[Drive / bank / upload date]
     E[Supabase Cron every 5 min] --> F[Vercel protected dispatcher]
@@ -40,7 +40,7 @@ Job failures retry with exponential delays capped at 60 minutes, then become fai
 
 Amounts are integer satang; times are stored as UTC and report boundaries computed in Asia/Bangkok. Transfers count in the transaction list, but not income/expense/net/category totals. Account charts show cash flow, not balances.
 
-Daily transaction range ends exclusively at 23:00; pending count uses the full upload calendar day so nightly uploads after 23:00 are visible. Weekly/monthly ranges include complete calendar periods. The daily LINE report is a cutoff snapshot; dashboard and in-app reports use latest entries/full day. Snapshot retry never recomputes or resends after manual corrections. UUID retry keys cover LINE's 24-hour window; uncertain older deliveries stop automatically. Database uniqueness on owner/report_key prevents another report record for the same period.
+Daily reports are sent at 08:00 for the full previous calendar day. Pending slips count when uploaded from 08:00 that day until 08:00 the report morning, so the 23:30 upload and late uploads are visible exactly once. Unreviewed OCR amounts are listed separately and never added to totals. OCR runs on GitHub Actions (PaddleOCR) at 01:30 with a check-first 06:45 backup. Weekly/monthly ranges include complete calendar periods. The daily LINE report is a cutoff snapshot; dashboard and in-app reports use latest entries/full day. Snapshot retry never recomputes or resends after manual corrections. UUID retry keys cover LINE's 24-hour window; uncertain older deliveries stop automatically. Database uniqueness on owner/report_key prevents another report record for the same period.
 
 ## API
 

@@ -1,0 +1,55 @@
+name: Slip OCR
+
+# Drafts OCR for unreviewed slips with PaddleOCR. Drafts never create transactions.
+# Logs are public for this repository: the runner prints counts only.
+on:
+  schedule:
+    - cron: '30 18 * * *' # 01:30 Asia/Bangkok, after the 23:30 upload and main Drive scan
+    - cron: '45 23 * * *' # 06:45 Asia/Bangkok backup; exits after the check when nothing is pending
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: slip-ocr
+  cancel-in-progress: false
+
+jobs:
+  ocr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+      GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
+      DRIVE_OWNER_ID: ${{ secrets.DRIVE_OWNER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - id: check
+        run: npx tsx scripts/ocr-runner.ts check
+      - if: steps.check.outputs.pending != '0'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/ocr/requirements.txt
+      - if: steps.check.outputs.pending != '0'
+        run: pip install -r services/ocr/requirements.txt
+      - if: steps.check.outputs.pending != '0'
+        uses: actions/cache@v4
+        with:
+          path: ~/.paddlex
+          key: paddlex-models-${{ hashFiles('services/ocr/infer.py', 'services/ocr/requirements.txt') }}
+      - if: steps.check.outputs.pending != '0'
+        run: OCR_PYTHON="$(command -v python)" npx tsx scripts/ocr-runner.ts run
+        env:
+          OCR_ENABLED: 'true'
+          OCR_ENGINE: paddle

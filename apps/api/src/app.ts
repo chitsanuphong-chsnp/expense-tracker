@@ -129,7 +129,11 @@ app.get('/api/slips/:id/image',async c=>{
     checked(await admin().from('drive_sources').upsert({...body,owner_id:c.get('owner'),source_code:code,cursor:null,scan_complete:false,last_scan_status:null,last_scan_at:null},{onConflict:'owner_id,source_code'}));return c.json({ok:true});
   });
   app.patch('/api/settings',async c=>{
-    const body=z.object({budget_satang:z.number().int().min(0).max(999999999999)}).parse(await c.req.json());checked(await admin().from('profiles').update(body).eq('id',c.get('owner')));return c.json({ok:true});
+    const body=z.object({budget_satang:z.number().int().min(0).max(999999999999).optional(),own_names:z.array(z.string().trim().min(2).max(60)).max(5).optional()}).refine(b=>Object.keys(b).length>0).parse(await c.req.json());checked(await admin().from('profiles').update(body).eq('id',c.get('owner')));return c.json({ok:true});
+  });
+  app.patch('/api/accounts/:id/numbers',async c=>{
+    const body=z.object({numbers:z.array(z.string().regex(/^[0-9]{10,15}$/)).max(3)}).parse(await c.req.json());
+    checked(await admin().from('accounts').update(body).eq('id',uuid.parse(c.req.param('id'))).eq('owner_id',c.get('owner')));return c.json({ok:true});
   });
   app.post('/api/accounts',async c=>{
     const body=z.object({name:z.string().trim().min(1).max(100),kind:z.enum(['bank','cash']),bank_code:z.string().max(20).nullable(),color:z.string().regex(/^#[a-fA-F0-9]{6}$/)}).parse(await c.req.json());

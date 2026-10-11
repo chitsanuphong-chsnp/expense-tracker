@@ -86,3 +86,15 @@ Patched image processing to sharp 0.35.5 and tests to Vitest 5.0.3. The installe
 - Added read-only `supabase/check-migrations.sql`; a PGlite test confirms it reports 002–004 as missing on 001 only, then all seven checks pass after applying them.
 - README updated: OCR draft rules, slip deletion and the migration check.
 - Typecheck, 78 tests and API/Web build passed. No runtime code, dependency or SQL migration changes.
+
+## 11 Oct 2026: 08:00 daily report and OCR on GitHub Actions
+- Daily LINE report moves from 23:15 to 08:00 for the full previous day. Pending slips count when uploaded 08:00 that day to 08:00 the report morning (covers the 23:30 phone upload), once only. Unreviewed OCR amounts appear as a separate line, never in totals. Drive scans 23:35–00:30 and a 06:30 backup.
+- `.github/workflows/slip-ocr.yml` runs PaddleOCR at 01:30 and a check-first 06:45 backup; failed slips retry at most three times; runner prints counts and safe error codes only.
+- Typecheck, 81 tests, API/Web build passed. Preview checked at 390x844: settings schedule copy, daily Flex title by date and the OCR draft line.
+- Paddle 3.3.0 installs on Linux, but this cloud container blocks the model download host, so end-to-end OCR on GitHub Actions is untested until the first manual run. Scheduled workflows need the file on `main`.
+- LINE Flex shows spending only: income, net and per-account income removed; account rows read "ใช้ไป".
+- `005_own_identity.sql` adds `profiles.own_names` (max 5). A recipient matching the owner's name (title/space-insensitive, first name or full) marks the slip as a likely own-account transfer: excluded from the OCR draft total, counted on its own Flex line, and the record form preselects "โอน". The owner still confirms. Tests cover masked Thai/English names, short names and the migration constraint (82 tests).
+- Real-slip check (16 user slips: 8 K-PLUS, 6 ttb, 1 Krungthai, 1 MAKE), Tesseract only because this environment cannot download Paddle models. Compared with values read from the images: amount 16/16, date/time 14/16 (two K-PLUS month names unreadable, left empty, none wrong), own-account transfers flagged 3/3 with no false match on a relative sharing the surname. Parser fixes from this run: amount up to five lines below the label; masked MAKE sender name. Paddle on these slips still needs the first GitHub Actions run.
+- `005_own_identity.sql` also adds `accounts.numbers` (max 3 full account/PromptPay numbers, digits only). Masked slip numbers are matched digit-by-digit (at least three visible digits) before names: recipient match → likely own transfer and preselected destination; sender match → source account (separates MAKE and K-PLUS on one bank).
+- When a month name is unreadable, the date is filled from the upload day or the day before only if day number and year match; it is labelled for review. Re-parsing the same 16 real slips: amount 16/16, date/time 16/16 (2 filled from the upload day), sender number 13/16 (three ttb bill payments unreadable, fall back to the source mapping). 86 tests.
+

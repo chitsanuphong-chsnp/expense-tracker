@@ -1,8 +1,10 @@
 import React from 'react';
 import {View} from 'react-native';
-import {money,type Slip} from '@expense/core';
+import {money,likelyOwnTransfer,type Slip} from '@expense/core';
+import {useData} from './state';
 import {T,C,s} from './ui';
 export function QrDetails({slip}:{slip:Slip}){
+ const {data}=useData(),own=likelyOwnTransfer(slip.ocr_details,data.settings.own_names,data.accounts);
  const details=slip.qr_details,draft=slip.ocr_details;if(!details&&!draft)return null;
  return <View style={{gap:10,padding:14,backgroundColor:'#f4f6fc',borderRadius:14}}>
  {details&&<><T style={s.bold}>ข้อมูลที่ถอดได้จาก QR</T>{details.format==='mini_qr'?<>
@@ -12,7 +14,7 @@ export function QrDetails({slip}:{slip:Slip}){
  <T style={{fontSize:11,color:C.muted}}>รูปแบบและ checksum ถูกต้อง · ยังไม่ได้ยืนยันธุรกรรมกับธนาคาร</T>
  <T style={{fontSize:12,color:C.muted,lineHeight:21}}>QR นี้ไม่มีฟิลด์จำนวนเงิน วันเวลาธุรกรรม ชื่อผู้โอนหรือผู้รับ และประเภทรายการ</T>
  </>:<T style={{fontSize:12,color:C.muted}}>ไม่ตรงกับรูปแบบ Mini QR ที่รองรับ ยังสกัดข้อมูลธุรกรรมอย่างน่าเชื่อถือไม่ได้</T>}</>}
- {draft&&!draft.error&&<View style={{gap:7,marginTop:6}}><T style={s.bold}>ข้อมูลจาก OCR · กรุณาตรวจสอบ</T><T>จำนวนเงิน: {draft.amount_satang!==null?money(draft.amount_satang):'อ่านไม่ได้'}</T><T>วันเวลา: {draft.date??'อ่านไม่ได้'} {draft.time??''}</T>{draft.sender&&<T>ผู้โอน: {draft.sender}</T>}{draft.recipient&&<T>ผู้รับ: {draft.recipient}</T>}<T style={s.muted}>ตรวจยอดและเลือกประเภทรายการก่อนบันทึก การโอนระหว่างบัญชีตัวเองไม่ใช่รายจ่าย</T></View>}
+ {draft&&!draft.error&&<View style={{gap:7,marginTop:6}}><T style={s.bold}>ข้อมูลจาก OCR · กรุณาตรวจสอบ</T><T>จำนวนเงิน: {draft.amount_satang!==null?money(draft.amount_satang):'อ่านไม่ได้'}</T><T>วันเวลา: {draft.date??'อ่านไม่ได้'} {draft.time??''}</T>{draft.date_source==='upload'&&<T style={{color:'#94703a'}}>อ่านชื่อเดือนไม่ได้ · เติมเดือน/ปีจากวันที่อัปโหลด กรุณาตรวจ</T>}{draft.sender&&<T>ผู้โอน: {draft.sender}</T>}{draft.recipient&&<T>ผู้รับ: {draft.recipient}</T>}{own&&<T style={{color:'#94703a'}}>ผู้รับตรงกับบัญชีหรือชื่อของคุณ · น่าจะเป็นการโอนเข้าบัญชีตัวเอง กรุณาตรวจสอบ</T>}<T style={s.muted}>ตรวจยอดและเลือกประเภทรายการก่อนบันทึก การโอนระหว่างบัญชีตัวเองไม่ใช่รายจ่าย</T></View>}
  {draft?.error&&<T style={s.muted}>OCR ยังอ่านไม่สำเร็จ ลองประมวลผลใหม่หรือกรอกเองได้</T>}
  </View>;
 }

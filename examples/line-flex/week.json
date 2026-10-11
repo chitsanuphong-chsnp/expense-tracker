@@ -68,53 +68,6 @@
           "contents": [
             {
               "type": "text",
-              "text": "รายรับ",
-              "size": "sm",
-              "color": "#667085",
-              "flex": 2
-            },
-            {
-              "type": "text",
-              "text": "฿0.00",
-              "size": "sm",
-              "weight": "bold",
-              "align": "end",
-              "flex": 3,
-              "wrap": true
-            }
-          ]
-        },
-        {
-          "type": "box",
-          "layout": "horizontal",
-          "contents": [
-            {
-              "type": "text",
-              "text": "เงินสุทธิ",
-              "size": "sm",
-              "color": "#667085",
-              "flex": 2
-            },
-            {
-              "type": "text",
-              "text": "-฿5,070.00",
-              "size": "sm",
-              "weight": "bold",
-              "align": "end",
-              "flex": 3,
-              "wrap": true
-            }
-          ]
-        },
-        {
-          "type": "separator"
-        },
-        {
-          "type": "box",
-          "layout": "horizontal",
-          "contents": [
-            {
-              "type": "text",
               "text": "ttb",
               "size": "sm",
               "color": "#667085",
@@ -122,7 +75,7 @@
             },
             {
               "type": "text",
-              "text": "จ่าย ฿1,470.00 · รับ ฿0.00",
+              "text": "ใช้ไป ฿1,470.00",
               "size": "sm",
               "weight": "bold",
               "align": "end",
@@ -144,7 +97,7 @@
             },
             {
               "type": "text",
-              "text": "จ่าย ฿1,080.00 · รับ ฿0.00",
+              "text": "ใช้ไป ฿1,080.00",
               "size": "sm",
               "weight": "bold",
               "align": "end",
@@ -166,7 +119,7 @@
             },
             {
               "type": "text",
-              "text": "จ่าย ฿720.00 · รับ ฿0.00",
+              "text": "ใช้ไป ฿720.00",
               "size": "sm",
               "weight": "bold",
               "align": "end",
@@ -188,7 +141,7 @@
             },
             {
               "type": "text",
-              "text": "จ่าย ฿1,200.00 · รับ ฿0.00",
+              "text": "ใช้ไป ฿1,200.00",
               "size": "sm",
               "weight": "bold",
               "align": "end",
@@ -210,7 +163,7 @@
             },
             {
               "type": "text",
-              "text": "จ่าย ฿600.00 · รับ ฿0.00",
+              "text": "ใช้ไป ฿600.00",
               "size": "sm",
               "weight": "bold",
               "align": "end",
@@ -244,6 +197,13 @@
         {
           "type": "text",
           "text": "รอข้อมูล 3 สลิป · ไม่รวมในยอด",
+          "wrap": true,
+          "size": "xs",
+          "color": "#94703a"
+        },
+        {
+          "type": "text",
+          "text": "ร่าง OCR ยังไม่ตรวจ ฿945.00 (3 สลิป) · ไม่รวมในยอด",
           "wrap": true,
           "size": "xs",
           "color": "#94703a"

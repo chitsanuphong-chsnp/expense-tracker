@@ -74,3 +74,15 @@ Patched image processing to sharp 0.35.5 and tests to Vitest 5.0.3. The installe
 - App TypeScript and Web/PWA export passed. All five poses inspected at desktop 1280x720 and the home card at mobile 390x844. Local rAF wave sample was 142.8 Hz with changing transforms; this is not a device FPS guarantee.
 - Modal and LINE mascots remain static. No generated images, raster edits, new dependencies or transaction changes. See QUICK-ENTRY-REPORTS-MASCOT.md.
 
+
+## 7 Oct 2026: local OCR drafts and slip deletion
+- `003_ocr.sql` adds nullable `slips.ocr_details`; `004_delete_slips.sql` adds owner-scoped `delete_unrecorded_slips`. Both are safe to rerun.
+- Tests cover owner-scoped deletion, recorded transactions kept, duplicate references removed with their original, and refusal while an import lease is running. Drive files are never touched.
+- OCR benchmark on four user slips is in OCR.md (Paddle selected; 12/12 amount/date/time fields on that small sample only). OCR remains a reviewed draft and never creates transactions.
+- Paddle needs a local Python worker; OCR is not deployed on Vercel.
+
+## 11 Oct 2026: migration status and docs
+- User confirmed 002_realtime, 003_ocr and 004_delete_slips were run in hosted Supabase SQL Editor. Hosted Realtime refresh, OCR queue and delete flow still need a manual app check.
+- Added read-only `supabase/check-migrations.sql`; a PGlite test confirms it reports 002–004 as missing on 001 only, then all seven checks pass after applying them.
+- README updated: OCR draft rules, slip deletion and the migration check.
+- Typecheck, 78 tests and API/Web build passed. No runtime code, dependency or SQL migration changes.

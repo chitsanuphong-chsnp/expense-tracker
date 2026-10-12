@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {Modal,Pressable,ScrollView,View} from 'react-native';
+import {Image,Modal,Pressable,ScrollView,View} from 'react-native';
 import {Coffee,Delete,Fuel,Pencil,Plus,ShoppingBag,ShoppingBasket,Store,TrainFront,UtensilsCrossed,X} from 'lucide-react-native';
 import {defaultQuickShops,money,parseMoney,suggestedCategories,type QuickShop} from '@expense/core';
 import {useData,newId} from './state';
@@ -9,7 +9,7 @@ import {tone,toneText} from './theme';
 import {MotionPressable,useMotion} from './motion';
 import {AccountIcon} from './bank-icon';
 
-// Shop icons: a few common kinds. 7-Eleven gets its logo once assets/shops/7eleven.png is added (store icon until then).
+// Shop icons: the 7-Eleven logo (assets/shops/7eleven-icon.png, cut from 7eleven.png) and a few common kinds.
 const icons:Record<string,{Icon:typeof Store;tint:string;ink:string;label:string}>={
   '7eleven':{Icon:Store,tint:'#e8f5ec',ink:'#0f8a4b',label:'ร้านสะดวกซื้อ'},
   food:{Icon:UtensilsCrossed,tint:'#fdf0e3',ink:'#d2873a',label:'อาหาร'},
@@ -20,7 +20,9 @@ const icons:Record<string,{Icon:typeof Store;tint:string;ink:string;label:string
   fuel:{Icon:Fuel,tint:'#fdeee8',ink:'#c96a45',label:'น้ำมัน'},
   store:{Icon:Store,tint:'#eef1f6',ink:'#657187',label:'ร้านค้า'},
 };
+const logos:Record<string,number>={'7eleven':require('../assets/shops/7eleven-icon.png')};
 export function ShopIcon({icon,size=52}:{icon:string;size?:number}){
+  if(logos[icon])return <Image source={logos[icon]} accessibilityIgnoresInvertColors style={{width:size,height:size,borderRadius:size*0.3}}/>;
   const k=icons[icon]??icons.store;
   return <View style={{width:size,height:size,borderRadius:size*0.3,backgroundColor:tone(k.tint),alignItems:'center',justifyContent:'center'}}><k.Icon size={size*0.46} color={toneText(k.ink)}/></View>;
 }

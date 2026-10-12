@@ -132,6 +132,7 @@ Patched image processing to sharp 0.35.5 and tests to Vitest 5.0.3. The installe
 ## 12 Oct 2026 (afternoon): quick entry, LINE after import, record form
 - Quick entry on home: favourite shops row → bottom sheet with a big amount and own number pad (no phone keyboard), allowed accounts per shop (7-Eleven starter: ttb first, then cash), optional category with 19 suggested ones (a missing one is created on save), shop editor (name, icon, accounts in order, default category, delete). Migration 008 `profiles.quick_shops` (≤12, null = starter); settings PATCH validates with `quickShop`. Checked in demo: 7-Eleven ฿45.50 → today 429 → 474.50, cash tile 45.50, check modal.
 - After a Drive import with new slips the app calls `POST /api/line/import-summary` (one Flex for the chosen days, title "สรุปวันที่ …" or "สรุป 5 ต.ค. – 11 ต.ค."; skipped when LINE is not connected; range ≤ 62 days).
+- 7-Eleven logo (owner's file `assets/shops/7eleven.png`, 3840 × 3723 green tile): padded to a square with the logo's own green (#008061) instead of cropping, so the rounded corners never cut the logo; 160 px `7eleven-icon.png` (5 KB). Shown on the home row, amount sheet and icon picker; checked at 3× zoom.
 - Record form: "ผู้รับ" label; note hidden behind "+ เพิ่มหมายเหตุ".
 - Tests 118 pass (check-migrations 14 rows).
 

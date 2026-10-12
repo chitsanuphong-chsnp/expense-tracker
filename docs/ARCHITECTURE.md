@@ -55,10 +55,19 @@ All private endpoints require `Authorization: Bearer <Supabase access token>`.
 | POST `/api/slips/:uuid/link` | Atomic link to existing transaction |
 | GET `/api/slips/:uuid/image` | Private bounded image |
 | POST `/api/slips/:uuid/retry` | Reset a QR job |
-| POST `/api/sync` | Queue source scan |
+| POST `/api/sync` | Queue scans for a date range/source, save earlier readable drafts, run scan/QR jobs only (~60 s, no LINE) |
+| POST `/api/sync/run` | Continue a manual import |
+| GET `/api/sync/status?since=` | Progress: pending/done jobs, slips found, auto-saved |
+| POST `/api/sync/cancel` | Drop queued scan/QR jobs |
+| POST `/api/slips/upload` | Photo upload: QR + OCR, auto-save when the amount is read, no image kept |
+| POST `/api/transactions/:uuid/reviewed` | Clear the auto-save review flag |
+| PATCH/DELETE `/api/accounts/:uuid`, `/categories/:uuid`; PATCH `/api/accounts/:uuid/numbers`; DELETE `/api/rules/:uuid` | Edit/delete setup |
+| POST `/api/reset` | Delete transactions and slips, set the import start date |
+| POST `/api/line/test` | Today so far, not stored |
+| POST `/api/line/import-summary` | One Flex for days just imported, not stored |
 | PUT `/api/sources/:code` | Folder + actual-account mapping |
 | POST `/api/accounts`, `/categories`, `/rules` | Configuration |
-| PATCH `/api/settings` | Monthly budget |
+| PATCH `/api/settings` | Budget, own names, import start date, quick-entry shops |
 | POST `/api/line/link-code` | Pairing command, valid five minutes |
 | DELETE `/api/line/connection` | Disconnect owner |
 | GET `/api/export?start=...&end=...` | Formula-escaped owner-only CSV |

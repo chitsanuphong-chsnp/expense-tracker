@@ -4,6 +4,6 @@ export const periods={day:{name:'รายวัน',key:'day:2026-10-06',label:
 export function example(period:keyof typeof periods):Summary{
   const p=periods[period],income=0,expense=84500*p.scale;
   return {income,expense,net:income-expense,count:p.count,pending:p.pending,ocr_draft:{amount_satang:31500*p.pending,slips:p.pending},
-    byAccount:[['ttb',24500,'#5575e7'],['K-PLUS',18000,'#34ac95'],['Krungthai',12000,'#5ba7dc'],['MAKE',20000,'#9d7ae5'],['เงินสด',10000,'#e6ad4b']].map(([name,amount,color],i)=>({id:String(i),name:String(name),color:String(color),expense:Number(amount)*p.scale,income:i===0?income:0})),
+    byAccount:[['ttb',24500,'#5575e7','ttb'],['K-PLUS',18000,'#34ac95','kplus'],['Krungthai',12000,'#5ba7dc','krungthai'],['MAKE',20000,'#9d7ae5','make'],['เงินสด',10000,'#e6ad4b','cash']].map(([name,amount,color,bank],i)=>({id:String(i),name:String(name),color:String(color),bank:bank as any,expense:Number(amount)*p.scale,income:i===0?income:0})),
     byCategory:[['อาหาร',36500,'#e4a055'],['Shopping',20000,'#df81a5'],['เครื่องดื่ม',18000,'#b488de'],['เดินทาง',10000,'#6b99e2']].map(([name,amount,color],i)=>({id:String(i),name:String(name),color:String(color),expense:Number(amount)*p.scale}))};
 }

@@ -6,7 +6,7 @@ import {tone} from './theme';
 import {MotionPressable,useMotion} from './motion';
 import {useData} from './state';
 
-type Progress={pending:number;done:number;slips:number};
+type Progress={pending:number;done:number;slips:number;saved?:number};
 // Shown while "ดึงสลิปตอนนี้" runs. Polls the API every 2.5 s for real job counts: the bar fills by finished
 // import jobs (Drive scans + QR/OCR per slip), a light sweep shows it is still working, and the timer counts up.
 export function ImportProgress({since,onCancel}:{since:string;onCancel:()=>void}){
@@ -41,7 +41,7 @@ export function ImportProgress({since,onCancel}:{since:string;onCancel:()=>void}
       </Animated.View>}
     </View>
     <View style={[s.between,{gap:10}]}>
-      <T style={{fontSize:11,color:C.muted,flex:1}}>{progress?`พบสลิปใหม่ ${progress.slips} ใบ · เสร็จ ${progress.done} จาก ${total} งาน`:'เริ่มทำงาน…'}</T>
+      <T style={{fontSize:11,color:C.muted,flex:1}}>{progress?`พบสลิปใหม่ ${progress.slips} ใบ · บันทึกแล้ว ${progress.saved??0} · เสร็จ ${progress.done}/${total} งาน`:'เริ่มทำงาน…'}</T>
       <MotionPressable accessibilityRole="button" accessibilityLabel="ยกเลิกการดึงสลิป" onPress={onCancel} style={{paddingHorizontal:14,minHeight:34,borderRadius:10,borderWidth:1,borderColor:tone('#d9def0'),backgroundColor:tone('#ffffff'),justifyContent:'center'}}><T style={{fontSize:12,color:C.red,fontFamily:'NotoThaiBold'}}>ยกเลิก</T></MotionPressable>
     </View>
   </View>;

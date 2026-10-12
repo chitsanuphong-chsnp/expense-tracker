@@ -3,10 +3,12 @@ import {tone,toneText,barColor} from './theme';
 import {Image,ScrollView,StyleSheet,View} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {useRouter} from 'expo-router';
-import {ArrowDownLeft,ArrowLeftRight,ArrowUpRight,ChartNoAxesCombined,ChevronRight,Plus,Receipt,ScanText,Wallet} from 'lucide-react-native';
+import {ArrowDownLeft,ArrowLeftRight,ArrowUpRight,CalendarDays,ChartNoAxesCombined,ChevronRight,Plus,Receipt,ScanText,Wallet} from 'lucide-react-native';
 import {money,rangeFor,summarize,thaiDate} from '@expense/core';
 import {useData} from './state';
-import {BankIcon,bankOf} from './bank-icon';
+import {QuickShops} from './quick-entry';
+import {DateField} from './calendar';
+import {AccountIcon} from './bank-icon';
 import {T,Card,C,s} from './ui';
 import {GrowingBar,MotionPressable,Reveal} from './motion';
 import {Mascot} from './companion';
@@ -23,9 +25,26 @@ const makeStyles=()=>StyleSheet.create({
 // Read on every access so colors follow the current theme.
 const m=new Proxy({} as ReturnType<typeof makeStyles>,{get:(_,key)=>makeStyles()[key as keyof ReturnType<typeof makeStyles>]});
 
+type Period='today'|'yesterday'|'week'|'month'|'date';
+// One tidy segmented bar; the last segment opens the calendar and then shows the picked day.
+function PeriodBar({period,picked,pickedLabel,onPeriod,onPick}:{period:Period;picked:string;pickedLabel:string;onPeriod:(p:Period)=>void;onPick:(date:string)=>void}){
+  const seg=(active:boolean,label:React.ReactNode,onPress:()=>void,a11y:string)=><MotionPressable key={a11y} accessibilityRole="button" accessibilityLabel={a11y} accessibilityState={{selected:active}} onPress={onPress} style={{flex:1,minHeight:38,minWidth:44,paddingHorizontal:8,borderRadius:12,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:4,backgroundColor:active?tone('#ffffff'):'transparent',boxShadow:active?'0 2px 8px rgba(40,60,120,.10)':'none'}}>{label}</MotionPressable>;
+  const text=(active:boolean,value:string)=><T style={{fontSize:12,color:active?C.primary:C.muted,fontFamily:active?'NotoThaiBold':'NotoThai'}} numberOfLines={1}>{value}</T>;
+  const items:[Period,string][]=[['today','วันนี้'],['yesterday','เมื่อวาน'],['week','สัปดาห์นี้'],['month','เดือนนี้']];
+  return <View style={{flexDirection:'row',gap:3,padding:4,borderRadius:16,backgroundColor:tone('#e7ebf4')}}>
+    {items.map(([id,label])=>seg(period===id,text(period===id,label),()=>onPeriod(id),label))}
+    <DateField label="เลือกวัน" value={picked} onChange={onPick} trigger={open=>seg(period==='date',<>{<CalendarDays size={14} color={period==='date'?C.primary:C.muted}/>}{period==='date'&&text(true,pickedLabel)}</>,open,'เลือกวัน')}/>
+  </View>;
+}
 export function MobileDashboard(){
   const {data}=useData(),router=useRouter(),today=thaiDate();
-  const day=rangeFor(today,'day'),summary=summarize(data,day.start,day.end);
+  // Period for the hero and the cash/transfer tiles: today, yesterday, this week, this month, or a picked day.
+  const [period,setPeriod]=React.useState<Period>('today'),[picked,setPicked]=React.useState(today);
+  const yesterday=thaiDate(new Date(new Date(`${today}T12:00:00+07:00`).getTime()-86400000));
+  const day=period==='week'?rangeFor(today,'week'):period==='month'?rangeFor(today,'month'):rangeFor(period==='yesterday'?yesterday:period==='date'?picked:today,'day');
+  const summary=summarize(data,day.start,day.end);
+  const pickedLabel=new Intl.DateTimeFormat('th-TH',{timeZone:'UTC',day:'numeric',month:'short'}).format(new Date(`${picked}T12:00:00Z`));
+  const heroLabel={today:'วันนี้ใช้ไป',yesterday:'เมื่อวานใช้ไป',week:'สัปดาห์นี้ใช้ไป',month:'เดือนนี้ใช้ไป',date:`${pickedLabel} ใช้ไป`}[period];
   const monthRange=rangeFor(today,'month'),month=summarize(data,monthRange.start,monthRange.end);
   const budget=data.settings.budget_satang,over=budget>0&&month.expense>budget;
   const pending=data.slips.filter(slip=>!['linked','duplicate'].includes(slip.status)).length;
@@ -34,8 +53,8 @@ export function MobileDashboard(){
   const unchecked=data.transactions.filter(t=>t.needs_review).length;
   // Four equal tiles (2 × 2). Own-account transfers are not spending, so they get their own tile.
   const tiles=[
-    {label:'เงินสดใช้ไปวันนี้',value:money(cash),background:'#fff3df',color:toneText('#d4a247'),icon:Wallet,go:()=>router.push('/transactions')},
-    {label:'โอนให้บัญชีตัวเอง · เดือนนี้',value:money(month.transfers?.amount_satang??0),background:'#e9edff',color:toneText('#5668df'),icon:ArrowLeftRight,go:()=>router.push({pathname:'/transactions',params:{kind:'transfer'}})},
+    {label:'เงินสดใช้ไป',value:money(cash),background:'#fff3df',color:toneText('#d4a247'),icon:Wallet,go:()=>router.push('/transactions')},
+    {label:'โอนให้บัญชีตัวเอง',value:money(summary.transfers?.amount_satang??0),background:'#e9edff',color:toneText('#5668df'),icon:ArrowLeftRight,go:()=>router.push({pathname:'/transactions',params:{kind:'transfer'}})},
     {label:'สลิปรอข้อมูล',value:`${pending} สลิป`,background:'#e2f4ed',color:toneText('#2daa89'),icon:Receipt,go:()=>router.push('/slips')},
     {label:'บันทึกอัตโนมัติ · ยังไม่ตรวจ',value:`${unchecked} รายการ`,background:'#f3ebfb',color:toneText('#8a5fc9'),icon:ScanText,go:()=>router.push({pathname:'/slips',params:{tab:'auto'}})},
   ];
@@ -53,12 +72,16 @@ export function MobileDashboard(){
       <View accessibilityRole="progressbar" accessibilityLabel="งบรายเดือนที่ใช้ไป" accessibilityValue={{min:0,max:100,now:budget?Math.min(100,Math.round(month.expense/budget*100)):0,text:budget?`ใช้ไป ${money(month.expense)} จาก ${money(budget)}`:'ยังไม่ได้ตั้งงบ'}} style={{height:5,borderRadius:5,backgroundColor:tone('#e2e6f0'),overflow:'hidden'}}><View style={{height:5,borderRadius:5,width:`${budget?Math.min(100,month.expense/budget*100):0}%`,backgroundColor:over?C.red:tone('#687adf')}}/></View>
     </View>
 
+    <PeriodBar period={period} picked={picked} pickedLabel={pickedLabel} onPeriod={setPeriod} onPick={d=>{setPicked(d);setPeriod(d===today?'today':'date');}}/>
+
     <LinearGradient colors={['#4876e2','#7756ca']} start={{x:0,y:0}} end={{x:1,y:1}} style={{padding:18,borderRadius:24,gap:13,boxShadow:'0 9px 22px rgba(78,100,203,.16)'}}>
-      <View style={{flexDirection:'row',alignItems:'center',gap:10}}><View style={{flex:1,minWidth:0,gap:5}}><T style={{fontSize:12,color:toneText('#eef0ff')}}>วันนี้ใช้ไป</T><Reveal replayKey={amount}><T accessibilityLabel={`วันนี้ใช้ไป ${amount}`} style={{fontFamily:'NotoLatinBold',fontSize:amount.length>14?25:amount.length>11?29:36,lineHeight:46,color:toneText('white')}}>{amount}</T></Reveal><T style={{fontSize:10,color:toneText('#e2e8ff')}}>{summary.count} รายการ · ไม่รวมโอนให้บัญชีตัวเอง</T></View>
+      <View style={{flexDirection:'row',alignItems:'center',gap:10}}><View style={{flex:1,minWidth:0,gap:5}}><T style={{fontSize:12,color:toneText('#eef0ff')}}>{heroLabel}</T><Reveal replayKey={amount}><T accessibilityLabel={`${heroLabel} ${amount}`} style={{fontFamily:'NotoLatinBold',fontSize:amount.length>14?25:amount.length>11?29:36,lineHeight:46,color:toneText('white')}}>{amount}</T></Reveal><T style={{fontSize:10,color:toneText('#e2e8ff')}}>{summary.count} รายการ · ไม่รวมโอนให้บัญชีตัวเอง</T></View>
         {showArt&&<Mascot size={76}/>}
       </View>
       <MotionPressable accessibilityRole="button" onPress={()=>router.push('/record')} style={{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:7,backgroundColor:tone('white'),borderRadius:15}}><Plus size={16} color={toneText('#5264b2')}/><T style={{fontFamily:'NotoThaiBold',fontSize:12,color:toneText('#3d4d75')}}>บันทึกรายการ</T><ChevronRight size={14} color={toneText('#8190ac')}/></MotionPressable>
     </LinearGradient>
+
+    <QuickShops/>
 
     <View style={m.grid}>{tiles.map((tile,index)=><Reveal key={tile.label} delay={70+index*35} style={m.tile}><MotionPressable accessibilityRole="button" accessibilityLabel={`${tile.label} ${tile.value}`} onPress={tile.go} style={{backgroundColor:tone(tile.background),borderRadius:19,padding:14,gap:8,margin:-14,minHeight:105}}><View style={s.between}><View style={[m.icon,{backgroundColor:tile.color}]}><tile.icon size={15} color={toneText('white')}/></View><ChevronRight size={13} color={toneText('#8a96aa')}/></View><View style={{gap:3}}><T style={{fontSize:11,color:toneText('#667184')}} numberOfLines={1}>{tile.label}</T><T style={[m.amount,{fontSize:tile.value.length>13?16:20,color:tile.label==='เงินสุทธิวันนี้'&&summary.net<0?C.red:tile.color}]}>{tile.value}</T></View></MotionPressable></Reveal>)}</View>
 
@@ -76,7 +99,7 @@ export function MobileDashboard(){
     <View style={{gap:9}}><View style={s.between}><T style={m.sectionTitle}>รายการล่าสุด</T><MotionPressable accessibilityRole="button" onPress={()=>router.push('/transactions')} hitSlop={8}><T style={{fontSize:11,color:C.primary}}>ดูทั้งหมด ›</T></MotionPressable></View>{recent.map(item=>{
       const account=data.accounts.find(account=>account.id===item.account_id),category=data.categories.find(category=>category.id===item.category_id);
       const color=item.kind==='income'?C.green:item.kind==='transfer'?C.primary:C.red,Icon=item.kind==='income'?ArrowDownLeft:item.kind==='transfer'?ArrowLeftRight:ArrowUpRight,toAccount=data.accounts.find(a=>a.id===item.to_account_id);
-      return <MotionPressable accessibilityRole="button" key={item.id} onPress={()=>router.push({pathname:'/record',params:{id:item.id}})} style={{backgroundColor:tone('white'),borderRadius:17,padding:13,flexDirection:'row',alignItems:'center',gap:10}}><View style={{width:35,height:35,borderRadius:12,backgroundColor:`${category?.color??color}18`,alignItems:'center',justifyContent:'center'}}><Icon size={16} color={category?.color??color}/></View><View style={{flex:1,minWidth:0,gap:4}}><T style={{fontSize:12,fontFamily:'NotoThaiBold'}} numberOfLines={1}>{item.note||item.counterparty||'ใช้ไป'}</T><View style={{flexDirection:'row',alignItems:'center',gap:4,minWidth:0}}><BankIcon code={bankOf(account,data.sources)} size={12}/><T style={{fontSize:9,color:C.muted,flexShrink:1}} numberOfLines={1}>{account?.name}{toAccount?` → ${toAccount.name}`:` · ${category?.name??'ยังไม่จัดหมวด'}`} · {new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short'}).format(new Date(item.occurred_at))}</T></View></View><T style={[m.amount,{fontSize:13,color,flexShrink:0}]}>{item.kind==='income'?'+':item.kind==='expense'?'-':''}{money(item.amount_satang)}</T></MotionPressable>;
+      return <MotionPressable accessibilityRole="button" key={item.id} onPress={()=>router.push({pathname:'/record',params:{id:item.id}})} style={{backgroundColor:tone('white'),borderRadius:17,padding:13,flexDirection:'row',alignItems:'center',gap:10}}><View style={{width:35,height:35,borderRadius:12,backgroundColor:`${category?.color??color}18`,alignItems:'center',justifyContent:'center'}}><Icon size={16} color={category?.color??color}/></View><View style={{flex:1,minWidth:0,gap:4}}><T style={{fontSize:12,fontFamily:'NotoThaiBold'}} numberOfLines={1}>{item.note||item.counterparty||'ใช้ไป'}</T><View style={{flexDirection:'row',alignItems:'center',gap:4,minWidth:0}}><AccountIcon account={account} sources={data.sources} size={12}/><T style={{fontSize:9,color:C.muted,flexShrink:1}} numberOfLines={1}>{account?.name}{toAccount?` → ${toAccount.name}`:` · ${category?.name??'ยังไม่จัดหมวด'}`} · {new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short'}).format(new Date(item.occurred_at))}</T></View></View><T style={[m.amount,{fontSize:13,color,flexShrink:0}]}>{item.kind==='income'?'+':item.kind==='expense'?'-':''}{money(item.amount_satang)}</T></MotionPressable>;
     })}{!recent.length&&<Card><T style={m.small}>บันทึกรายการแรกได้จากปุ่มด้านบน</T></Card>}</View>
   </View>;
 }

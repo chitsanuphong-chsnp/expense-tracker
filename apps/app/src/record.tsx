@@ -4,12 +4,12 @@ import React,{useEffect,useRef,useState} from 'react';
 import {View,Modal,useWindowDimensions} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useRouter,useLocalSearchParams} from 'expo-router';
-import {parseMoney,thaiDate,transactionInput,likelyOwnTransfer,accountForMask,type Transaction} from '@expense/core';
+import {parseMoney,thaiDate,transactionInput,likelyOwnTransfer,accountForMask,type Transaction,accountForBank} from '@expense/core';
 import {useData,newId} from './state';
 import {withBankIcons} from './bank-icon';
 import {useSuccess} from './success';
 import {T,Card,Button,ActionRow,Field,Choices,Badge,C,s} from './ui';
-import {useMotion} from './motion';
+import {MotionPressable,useMotion} from './motion';
 import {DateField} from './calendar';
 import {validDate} from './calendar-data';
 import {SlipImage} from './slip-image';
@@ -25,7 +25,7 @@ function RecordForm(){
   const {reduced}=useMotion(),success=useSuccess(),state=useData(),router=useRouter(),{width}=useWindowDimensions(),params=useLocalSearchParams<{id?:string;slip?:string}>();
   const old=state.data.transactions.find(t=>t.id===params.id),slip=state.data.slips.find(s=>s.id===params.slip||(!!old&&s.transaction_id===old.id));
   const ownHint=!old&&likelyOwnTransfer(slip?.ocr_details,state.data.settings.own_names,state.data.accounts);
-  const [amount,setAmount]=useState(old?String(old.amount_satang/100):slip?.ocr_details?.amount_satang!=null?String(slip.ocr_details.amount_satang/100):''),[account,setAccount]=useState(old?.account_id??state.data.accounts[0]?.id??''),[toAccount,setToAccount]=useState(old?.to_account_id??accountForMask(slip?.ocr_details?.recipient_account,state.data.accounts)?.id??''),[category,setCategory]=useState<string|null>(old?.category_id??null),[date,setDate]=useState(old?thaiDate(old.occurred_at):slip?.ocr_details?.date??thaiDate()),[time,setTime]=useState(old?timeOf(old.occurred_at):slip?.ocr_details?.time??timeOf(new Date())),[note,setNote]=useState(old?.note??''),[counterparty,setCounterparty]=useState(old?.counterparty??slip?.ocr_details?.recipient??''),[remember,setRemember]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirm,setConfirm]=useState(false),[remembered,setRemembered]=useState(false);
+  const [amount,setAmount]=useState(old?String(old.amount_satang/100):slip?.ocr_details?.amount_satang!=null?String(slip.ocr_details.amount_satang/100):''),[account,setAccount]=useState(old?.account_id??state.data.accounts[0]?.id??''),[toAccount,setToAccount]=useState(old?.to_account_id??accountForMask(slip?.ocr_details?.recipient_account,state.data.accounts)?.id??''),[category,setCategory]=useState<string|null>(old?.category_id??null),[date,setDate]=useState(old?thaiDate(old.occurred_at):slip?.ocr_details?.date??thaiDate()),[time,setTime]=useState(old?timeOf(old.occurred_at):slip?.ocr_details?.time??timeOf(new Date())),[note,setNote]=useState(old?.note??''),[counterparty,setCounterparty]=useState(old?.counterparty??slip?.ocr_details?.recipient??''),[remember,setRemember]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirm,setConfirm]=useState(false),[remembered,setRemembered]=useState(false),[showNote,setShowNote]=useState(!!old?.note);
   // No type picker: choosing one of my accounts as destination makes it a transfer; otherwise it is spending.
   const kind:Transaction['kind']=toAccount?'transfer':old?.kind==='income'?'income':'expense';
   const id=useRef(old?.id??newId()),accountTouched=useRef(false);
@@ -33,7 +33,8 @@ function RecordForm(){
   const preferenceKey=`expense.last-account.${state.demo?'demo':state.session?.user.id??'guest'}`;
   useEffect(()=>{if(old){id.current=old.id;setAmount(String(old.amount_satang/100));setAccount(old.account_id);setToAccount(old.to_account_id??'');setCategory(old.category_id);setDate(thaiDate(old.occurred_at));setTime(timeOf(old.occurred_at));setNote(old.note);setCounterparty(old.counterparty);}},[old?.id]);
   // The masked sender number on the slip beats the per-source default (MAKE and K-PLUS can share a bank).
-  const sourceAccount=accountForMask(slip?.ocr_details?.sender_account,state.data.accounts)?.id??state.data.sources.find(s=>s.source_code===slip?.source_code)?.account_id;
+  // Then the account linked to the slip's bank, or named after it, so a detected bank is never swapped for another.
+  const sourceAccount=accountForMask(slip?.ocr_details?.sender_account,state.data.accounts)?.id??accountForBank(slip?.source_code,state.data.accounts,state.data.sources);
   useEffect(()=>{let alive=true;if(old)return;
     setRemembered(false);
     if(sourceAccount&&state.data.accounts.some(a=>a.id===sourceAccount)){if(!accountTouched.current)setAccount(sourceAccount);return;}
@@ -72,7 +73,7 @@ function RecordForm(){
         <View><T style={s.label}>โอนเข้าบัญชีของฉันไหม</T>{ownHint&&!toAccount&&<T style={{fontSize:12,color:toneText('#94703a')}}>ผู้รับตรงกับชื่อของคุณ น่าจะโอนเข้าบัญชีตัวเอง เลือกบัญชีปลายทาง</T>}<Choices items={[{id:'',name:'ไม่ใช่ (ใช้ไป)'},...withBankIcons(state.data.accounts.filter(a=>a.id!==account),state.data.sources)]} value={toAccount} onChange={v=>setToAccount(v??'')}/></View>
         <View style={s.grid}><View style={{flexGrow:1,flexBasis:180}}><DateField label="วันที่ทำรายการ" value={date} onChange={setDate}/></View><View style={{flexGrow:1,flexBasis:120}}><Field label="เวลาไทย (HH:mm)" value={time} onChangeText={setTime} keyboardType="numbers-and-punctuation" maxLength={5}/></View></View>
         {kind!=='transfer'&&<View><T style={s.label}>หมวดหมู่</T><Choices items={[{id:'none',name:'ยังไม่จัดหมวด'},...state.data.categories]} value={category??'none'} onChange={v=>setCategory(v==='none'?null:v)}/></View>}
-        <Field label="ผู้รับ / ผู้โอน / ร้านค้า" value={counterparty} onChangeText={setCounterparty}/><Field label="หมายเหตุ" value={note} onChangeText={setNote} multiline/>
+        <Field label="ผู้รับ" value={counterparty} onChangeText={setCounterparty}/>{showNote?<Field label="หมายเหตุ" value={note} onChangeText={setNote} multiline autoFocus={!note}/>:<MotionPressable accessibilityRole="button" onPress={()=>setShowNote(true)} style={{alignSelf:'flex-start',paddingVertical:6}}><T style={{fontSize:13,color:C.primary}}>+ เพิ่มหมายเหตุ</T></MotionPressable>}
         {!!category&&!!counterparty&&kind!=='transfer'&&<Button secondary onPress={()=>setRemember(!remember)}>{remember?'✓ จำหมวดสำหรับผู้รับนี้':'จำหมวดสำหรับผู้รับนี้ครั้งต่อไป'}</Button>}
         {!!message&&<T accessibilityRole="alert" style={{color:C.red}}>{message}</T>}<ActionRow testID="record-actions">{old&&<Button secondary disabled={busy} onPress={()=>setConfirm(true)}>ลบรายการนี้</Button>}<Button loading={busy} onPress={()=>void submit()}>บันทึกรายการ</Button></ActionRow>
       </View>

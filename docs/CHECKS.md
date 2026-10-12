@@ -129,6 +129,20 @@ Patched image processing to sharp 0.35.5 and tests to Vitest 5.0.3. The installe
 
 - LINE Flex redesign: compact gradient header (linearGradient box background with solid fallback) with title, amount, item count and a 60 px mascot; accounts with colour dots (no categories or share bars, since most spending is uncategorised); tinted status box (pending, OCR draft, own transfers); secondary/primary buttons. In-app preview renders the same payload (gradient, radius, padding, widths) on a light bubble in both themes. Payload under 30 KB (test).
 
+## 12 Oct 2026 (afternoon): quick entry, LINE after import, record form
+- Quick entry on home: favourite shops row → bottom sheet with a big amount and own number pad (no phone keyboard), allowed accounts per shop (7-Eleven starter: ttb first, then cash), optional category with 19 suggested ones (a missing one is created on save), shop editor (name, icon, accounts in order, default category, delete). Migration 008 `profiles.quick_shops` (≤12, null = starter); settings PATCH validates with `quickShop`. Checked in demo: 7-Eleven ฿45.50 → today 429 → 474.50, cash tile 45.50, check modal.
+- After a Drive import with new slips the app calls `POST /api/line/import-summary` (one Flex for the chosen days, title "สรุปวันที่ …" or "สรุป 5 ต.ค. – 11 ต.ค."; skipped when LINE is not connected; range ≤ 62 days).
+- Record form: "ผู้รับ" label; note hidden behind "+ เพิ่มหมายเหตุ".
+- Tests 118 pass (check-migrations 14 rows).
+
+## 12 Oct 2026: slips tab, home period bar, slip bank kept
+- Drive import result: "บันทึกอัตโนมัติ N รายการ · ตรวจได้ในแท็บ ยังไม่ตรวจ" and "อ่านยอดไม่ได้ N ใบ · รอคุณกรอก"; `GET /api/sync/status` also returns `saved` (auto transactions since the import began). Checked with a mocked API (5 found, 4 saved, 1 waiting).
+- Cash accounts show a filled green circle with a centred ฿, the same size as the bank logos (chips, rows, settings); checked zoomed in for centring.
+- LINE Flex account rows show the round bank logo (or the green ฿ for cash) instead of a colour dot: 96 px PNGs in `apps/app/public/line/banks/` (ttb/MAKE with a thin ring so the white circle shows on white), linked only for a public HTTPS origin, colour dot otherwise. `Summary.byAccount[].bank` from `accountBank`. Preview and `examples/line-flex` updated; tests check the URLs and the shipped files.
+- Bottom bar gets "สลิป" (with a red count of pending + unchecked); the slips page opens with a "เพิ่มสลิป" card (two buttons that unfold the Drive import or the upload form; the import keeps running and showing progress when folded) above the slip box with counted tabs.
+- Home period bar: วันนี้ / เมื่อวาน / สัปดาห์นี้ / เดือนนี้ / calendar day; the hero amount, cash and own-transfer tiles follow it. Checked today 429, yesterday 306, a picked day 0 in demo.
+- Fix: the form opened from a slip fell back to the first account when the slip's Drive source had no linked account, so the detected bank changed. Now sender number → linked account → account named after the bank (`accountForBank`/`accountBank` in core, also used by auto-save and the bank icons). Tests added.
+
 ## 11 Oct 2026 (night): auto-save slips, transfers apart, review tab
 - Owner changed the rule: slips whose OCR amount is read are saved automatically. `autoTransaction` (core) picks the source account from the sender number or the Drive source's account, makes a transfer when the recipient number is another own account, uses the slip date/time or the upload time, applies category rules; no amount or no bank account → stays pending. Migration 007: `transactions.needs_review`, source `auto`, `auto_save_slip` (service role only), `mark_reviewed`, `save_transaction` clears the flag. Tests: `tests/auto-save.test.ts` (unit + PGlite), check-migrations now 13 rows.
 - Worker saves after OCR; `POST /api/sync` also saves earlier pending slips with a readable draft; upload saves and opens the row; `POST /api/transactions/:id/reviewed`.

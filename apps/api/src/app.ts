@@ -4,7 +4,7 @@ import { cors } from 'hono/cors';
 import { z } from 'zod';
 import { randomBytes,randomUUID,createHash,timingSafeEqual } from 'node:crypto';
 import sharp from 'sharp';
-import { transactionInput,summarize,transactionsCsv,sourceCodes,thaiDate,rangeFor,flexReport } from '@expense/core';
+import { transactionInput,summarize,transactionsCsv,sourceCodes,thaiDate,rangeFor,flexReport,quickShop } from '@expense/core';
 import { admin,configured,checked,dataset,userDb,rows } from './db.ts';
 import { signatureValid,pushReport } from './line.ts';
 import { decodeQr } from './qr.ts';
@@ -176,7 +176,7 @@ export function createApp() {
     checked(await admin().from('drive_sources').upsert({...body,owner_id:c.get('owner'),source_code:code,cursor:null,scan_complete:false,last_scan_status:null,last_scan_at:null},{onConflict:'owner_id,source_code'}));return c.json({ok:true});
   });
   app.patch('/api/settings',async c=>{
-    const body=z.object({budget_satang:z.number().int().min(0).max(999999999999).optional(),own_names:z.array(z.string().trim().min(2).max(60)).max(5).optional(),import_from:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional()}).refine(b=>Object.keys(b).length>0).parse(await c.req.json());checked(await admin().from('profiles').update(body).eq('id',c.get('owner')));return c.json({ok:true});
+    const body=z.object({budget_satang:z.number().int().min(0).max(999999999999).optional(),own_names:z.array(z.string().trim().min(2).max(60)).max(5).optional(),import_from:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),quick_shops:z.array(quickShop).max(12).optional()}).refine(b=>Object.keys(b).length>0).parse(await c.req.json());checked(await admin().from('profiles').update(body).eq('id',c.get('owner')));return c.json({ok:true});
   });
   app.patch('/api/accounts/:id/numbers',async c=>{
     const body=z.object({numbers:z.array(z.string().regex(/^[0-9]{10,15}$/)).max(3)}).parse(await c.req.json());
@@ -224,6 +224,17 @@ export function createApp() {
     const today=thaiDate(),day=rangeFor(today,'day'),summary=summarize(await dataset(db,owner),day.start,new Date().toISOString(),day.end);
     await pushReport(connection.line_user_id,flexReport(summary,`day:${today}`,process.env.APP_ORIGIN!,'ข้อความทดสอบ · ยอดวันนี้ถึงตอนนี้'),randomUUID());
     return c.json({ok:true});
+  });
+  // After "ดึงจาก Drive" in the app: one Flex for the imported days (not stored as a report; 08:00 runs as usual).
+  app.post('/api/line/import-summary',async c=>{
+    const owner=c.get('owner'),db=admin(),date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+    const body=z.object({from:date,to:date}).refine(b=>b.from<=b.to&&new Date(b.to).getTime()-new Date(b.from).getTime()<=62*86400000).parse(await c.req.json());
+    const connection=checked(await db.from('line_connections').select('line_user_id,blocked').eq('owner_id',owner).maybeSingle());
+    if(!connection||connection.blocked)return c.json({sent:false});
+    const start=rangeFor(body.from,'day').start,end=rangeFor(body.to,'day').end;
+    const key=body.from===body.to?`day:${body.from}`:`range:${body.from}:${body.to}`;
+    await pushReport(connection.line_user_id,flexReport(summarize(await dataset(db,owner),start,end),key,process.env.APP_ORIGIN!,'ดึงสลิปจาก Drive แล้ว · รายการที่บันทึกอัตโนมัติตรวจได้ในแอป'),randomUUID());
+    return c.json({sent:true});
   });
   app.post('/api/line/link-code',async c=>{
     const db=admin(),owner=c.get('owner'),code=randomBytes(10).toString('hex').toUpperCase();

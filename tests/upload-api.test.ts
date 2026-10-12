@@ -29,3 +29,9 @@ it('returns the existing slip instead of adding a duplicate',async()=>{
 it('sends a LINE test only when LINE is connected',async()=>{
   expect((await post('/api/line/test',{})).status).toBe(409);expect(pushReport).not.toHaveBeenCalled();
 });
+it('sends the import summary only when LINE is connected, for a valid range',async()=>{
+  expect(await (await post('/api/line/import-summary',{from:'2026-10-11',to:'2026-10-11'})).json()).toEqual({sent:false});
+  expect((await post('/api/line/import-summary',{from:'2026-10-12',to:'2026-10-11'})).status).toBe(400);
+  expect((await post('/api/line/import-summary',{from:'2026-01-01',to:'2026-10-11'})).status).toBe(400);
+  expect(pushReport).not.toHaveBeenCalled();
+});

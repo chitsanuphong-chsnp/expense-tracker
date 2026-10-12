@@ -5,7 +5,7 @@ import {AppState,Platform} from 'react-native';
 import {supabase,authService} from './auth-client';
 // Thai text for API error codes; callers can still check error.code.
 const apiErrors:Record<string,string>={
-  MIGRATION_REQUIRED:'ฐานข้อมูลยังไม่อัปเดต รัน migration ล่าสุด (005, 006, 007) ใน Supabase SQL Editor แล้วลองใหม่',
+  MIGRATION_REQUIRED:'ฐานข้อมูลยังไม่อัปเดต รัน migration ล่าสุด (005–008) ใน Supabase SQL Editor แล้วลองใหม่',
   DRIVE_NOT_ENABLED_FOR_ACCOUNT:'บัญชีนี้ยังไม่ได้ตั้งเป็นเจ้าของ Drive (DRIVE_OWNER_ID ใน Vercel)',
   DRIVE_NOT_CONFIGURED:'ยังไม่ได้ตั้งค่า Google Drive ใน Vercel',LINE_NOT_CONNECTED:'ยังไม่ได้เชื่อม LINE',
   OCR_NOT_CONFIGURED:'ยังไม่เปิด OCR (OCR_ENABLED ใน Vercel)',IMPORT_RUNNING:'กำลังนำเข้าสลิปอยู่ รอสักครู่แล้วลองใหม่',

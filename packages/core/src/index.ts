@@ -9,11 +9,14 @@ export type OcrDraft = {engine:string;amount_satang:number|null;date:string|null
 export type SlipQrDetails = {format:'mini_qr'|'unrecognized';sending_bank_code:string|null;sending_bank_name:string|null;transaction_reference:string|null;country_code:string|null;checksum:string|null;tags:{path:string;value:string}[];missing:string[]};
 export type Slip = { id: string; source_code: SourceCode; status: 'queued' | 'processing' | 'needs_details' | 'qr_unreadable' | 'duplicate' | 'linked' | 'failed'; uploaded_at: string; transaction_id: string | null; qr_payload: string | null; qr_details?: SlipQrDetails | null; ocr_details?: OcrDraft | null; duplicate_of: string | null; error_code: string | null; drive_file_id: string | null; origin?: 'drive' | 'upload'; name?: string };
 export type Source = { id: string; source_code: SourceCode; folder_id: string; account_id: string | null; last_scan_at: string | null; last_scan_status: string | null; scan_complete: boolean };
-export type Settings = { budget_satang: number; line_connected: boolean; line_blocked: boolean; own_names?: string[]; import_from?: string | null };
+// A favourite shop for quick entry: allowed accounts (first = default) and an optional default category.
+export type QuickShop = { id: string; name: string; icon: string; account_ids: string[]; category_id: string | null };
+export const quickShop = z.object({ id: z.string().min(1).max(40), name: z.string().trim().min(1).max(40), icon: z.string().max(20), account_ids: z.array(z.string().uuid()).max(6), category_id: z.string().uuid().nullable() });
+export type Settings = { budget_satang: number; line_connected: boolean; line_blocked: boolean; own_names?: string[]; import_from?: string | null; quick_shops?: QuickShop[] | null };
 export type Dataset = { accounts: Account[]; categories: Category[]; transactions: Transaction[]; slips: Slip[]; sources: Source[]; settings: Settings; reports: Report[]; rules: Rule[] };
 export type Rule = { id: string; counterparty: string; category_id: string };
 export type Report = { id: string; report_key: string; status: string; period_start: string; period_end: string; snapshot: Summary; sent_at: string | null; error_code: string | null };
-export type Summary = { income: number; expense: number; net: number; count: number; byAccount: { id: string; name: string; expense: number; income: number; color: string }[]; byCategory: { id: string; name: string; expense: number; color: string }[]; pending: number; ocr_draft?: { amount_satang: number; slips: number; own_transfers?: number }; transfers?: { amount_satang: number; count: number } };
+export type Summary = { income: number; expense: number; net: number; count: number; byAccount: { id: string; name: string; expense: number; income: number; color: string; bank?: SourceCode | 'cash' | null }[]; byCategory: { id: string; name: string; expense: number; color: string }[]; pending: number; ocr_draft?: { amount_satang: number; slips: number; own_transfers?: number }; transfers?: { amount_satang: number; count: number } };
 
 export const transactionInput = z.object({
   kind: z.enum(['income', 'expense', 'transfer']),
@@ -98,6 +101,36 @@ export function autoTransaction(slip: Pick<Slip, 'uploaded_at' | 'ocr_details'>,
     category_id: to ? null : rules.find(r => r.counterparty === counterparty)?.category_id ?? null, occurred_at: occurred.toISOString(), note: '', counterparty });
   return input.success ? input.data : null;
 }
+// Which bank (slip source) an account belongs to: the Drive source linked to it, else its name. Cash has none.
+export function accountBank(account: Pick<Account, 'id' | 'name' | 'kind'> | null | undefined, sources: Pick<Source, 'account_id' | 'source_code'>[] = []): SourceCode | null {
+  if (!account || account.kind === 'cash') return null;
+  const linked = sources.find(s => s.account_id === account.id); if (linked) return linked.source_code;
+  const n = account.name.toLowerCase().replace(/[\s_-]/g, '');
+  if (n.includes('make')) return 'make';
+  if (n.includes('ttb') || n.includes('ทีทีบี') || n.includes('ทหารไทย')) return 'ttb';
+  if (n.includes('kplus') || n.includes('kbank') || n.includes('กสิกร')) return 'kplus';
+  if (n.includes('krungthai') || n.includes('ktb') || n.includes('กรุงไทย')) return 'krungthai';
+  return null;
+}
+// The account a slip from this bank is booked on: the one linked to the Drive source, else the one named after the bank.
+export function accountForBank(code: SourceCode | null | undefined, accounts: Account[], sources: Pick<Source, 'account_id' | 'source_code'>[] = []): string | null {
+  if (!code) return null;
+  const linked = sources.find(s => s.source_code === code)?.account_id;
+  if (linked && accounts.some(a => a.id === linked)) return linked;
+  return accounts.find(a => accountBank(a, sources) === code)?.id ?? null;
+}
+// Categories offered while recording; one that does not exist yet is created when chosen.
+export const suggestedCategories: [string, string][] = [
+  ['อาหาร', '#e4a055'], ['เครื่องดื่ม/กาแฟ', '#b488de'], ['ของใช้/ซุปเปอร์มาร์เก็ต', '#5fae8a'], ['เดินทาง', '#6b99e2'], ['น้ำมัน', '#d27a5a'],
+  ['ช้อปปิ้ง', '#df81a5'], ['ค่าน้ำ/ค่าไฟ', '#4fa3c7'], ['โทรศัพท์/อินเทอร์เน็ต', '#7b8fd8'], ['ค่าที่พัก', '#a58b6f'], ['สุขภาพ/ยา', '#e06a7a'],
+  ['บันเทิง', '#9b6fd1'], ['การศึกษา', '#4d9e9e'], ['ของขวัญ/ทำบุญ', '#e2a33d'], ['สัตว์เลี้ยง', '#c28a5c'], ['ท่องเที่ยว', '#3fa2b8'],
+  ['ประกัน/ภาษี', '#8a94a8'], ['ครอบครัว', '#d9879b'], ['ความงาม', '#ef8fb0'], ['ทั่วไป', '#8ca3b5'],
+];
+// Starter list before the owner edits it: 7-Eleven, paid by the ttb account (TrueMoney) by default, or cash.
+export function defaultQuickShops(accounts: Account[], sources: Pick<Source, 'account_id' | 'source_code'>[] = []): QuickShop[] {
+  const cash = accounts.filter(a => a.kind === 'cash').map(a => a.id), ttb = accounts.filter(a => accountBank(a, sources) === 'ttb').map(a => a.id);
+  return [{ id: '7eleven', name: '7-Eleven', icon: '7eleven', account_ids: [...ttb, ...cash].slice(0, 6), category_id: null }];
+}
 export function dailyPendingWindow(date: string) {
   const start = new Date(`${date}T08:00:00+07:00`);
   return { start: start.toISOString(), end: new Date(start.getTime() + 86400000).toISOString() };
@@ -114,7 +147,7 @@ export function summarize(data: Dataset, start: string, end: string, pendingEnd 
   const spent = rows.filter(t => t.kind === 'expense'), moved = rows.filter(t => t.kind === 'transfer'), total = (list: Transaction[]) => list.reduce((n, t) => n + t.amount_satang, 0);
   const income = total(rows.filter(t => t.kind === 'income')), expense = total(spent);
   return { income, expense, net: income - expense, count: spent.length,
-    byAccount: data.accounts.map(a => ({ id: a.id, name: a.name, color: a.color, income: total(rows.filter(t => t.account_id === a.id && t.kind === 'income')), expense: total(spent.filter(t => t.account_id === a.id)) })),
+    byAccount: data.accounts.map(a => ({ id: a.id, name: a.name, color: a.color, bank: a.kind === 'cash' ? 'cash' as const : accountBank(a, data.sources), income: total(rows.filter(t => t.account_id === a.id && t.kind === 'income')), expense: total(spent.filter(t => t.account_id === a.id)) })),
     byCategory: [...data.categories, { id: 'uncategorized', name: 'ยังไม่จัดหมวด', color: '#a2abc0' }].map(c => ({ ...c, expense: total(spent.filter(t => (t.category_id ?? 'uncategorized') === c.id)) })).sort((a,b)=>b.expense-a.expense),
     pending: pending.length,
     ocr_draft: { amount_satang: drafts.reduce((n, s) => n + s.ocr_details!.amount_satang!, 0), slips: drafts.length, own_transfers: own.length },
@@ -157,24 +190,31 @@ export type FlexNode =
   | {type:'button';style?:'primary'|'secondary';color?:string;height?:'sm'|'md';flex?:number;adjustMode?:'shrink-to-fit';action:{type:'uri';label:string;uri:string}};
 export type FlexBox=Extract<FlexNode,{type:'box'}>;
 export type FlexMessage={type:'flex';altText:string;contents:{type:'bubble';size?:'mega';header:FlexBox;body:FlexBox;footer:FlexBox}};
-export function flexMascotUrl(key:string,origin:string):string|null {
+// LINE downloads public HTTPS artwork; never send localhost or authenticated URLs.
+function flexAssetUrl(path:string,origin:string):string|null {
   try {
     const base=new URL(origin);
-    // LINE downloads public HTTPS artwork; never send localhost or authenticated URLs.
     if(base.protocol!=='https:'||base.username||base.password||['localhost','127.0.0.1','[::1]'].includes(base.hostname))return null;
-    const pose=key.startsWith('month:')?'celebrate':key.startsWith('week:')?'thinking':'reading';
-    return new URL(`/line/mascot-${pose}-v2.png`,base.origin).href;
+    return new URL(path,base.origin).href;
   }catch{return null;}
+}
+export function flexMascotUrl(key:string,origin:string):string|null {
+  const pose=key.startsWith('month:')?'celebrate':key.startsWith('week:')?'thinking':'reading';
+  return flexAssetUrl(`/line/mascot-${pose}-v2.png`,origin);
 }
 export function flexReport(summary:Summary,key:string,origin:string,syncStatus:string):FlexMessage {
   const months=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  const title=key.startsWith('day:')?`สรุปวันที่ ${Number(key.slice(12,14))} ${months[Number(key.slice(9,11))-1]}`:key.startsWith('week:')?'สรุปสัปดาห์':'สรุปเดือน';
+  const dayLabel=(date:string)=>`${Number(date.slice(8,10))} ${months[Number(date.slice(5,7))-1]}`;
+  // range:FROM:TO is the summary sent after a Drive import from the app.
+  const title=key.startsWith('day:')?`สรุปวันที่ ${dayLabel(key.slice(4))}`:key.startsWith('range:')?`สรุป ${dayLabel(key.slice(6,16))} – ${dayLabel(key.slice(17,27))}`:key.startsWith('week:')?'สรุปสัปดาห์':'สรุปเดือน';
   const text=(value:string,extra:Partial<Extract<FlexNode,{type:'text'}>>={}):FlexNode=>({type:'text',text:value,size:'sm',color:'#253044',wrap:true,...extra});
   const dot=(color:string):FlexNode=>({type:'box',layout:'vertical',contents:[],width:'8px',height:'8px',cornerRadius:'4px',backgroundColor:color});
-  const line=(color:string,label:string,value:string):FlexNode=>({type:'box',layout:'horizontal',spacing:'sm',alignItems:'center',contents:[dot(color),text(label,{flex:3,color:'#4a5468',wrap:false}),text(value,{flex:2,weight:'bold',align:'end',wrap:false})]});
+  // Round bank logo (or the green ฿ for cash) before each account, like in the app; a colour dot when there is none.
+  const mark=(color:string,bank?:string|null):FlexNode=>{const url=bank?flexAssetUrl(`/line/banks/${bank}.png`,origin):null;return url?{type:'image',url,size:'20px',aspectRatio:'1:1',aspectMode:'fit',flex:0}:dot(color);};
+  const line=(color:string,label:string,value:string,bank?:string|null):FlexNode=>({type:'box',layout:'horizontal',spacing:'sm',alignItems:'center',contents:[mark(color,bank),text(label,{flex:3,color:'#4a5468',wrap:false}),text(value,{flex:2,weight:'bold',align:'end',wrap:false})]});
   const heading=(value:string):FlexNode=>text(value,{size:'xs',color:'#8a94a8',weight:'bold'});
   // Most spending has no category, so the Flex lists accounts only. Spending only.
-  const accounts=summary.byAccount.filter(a=>a.expense).map(a=>line(a.color,a.name,money(a.expense)));
+  const accounts=summary.byAccount.filter(a=>a.expense).map(a=>line(a.color,a.name,money(a.expense),a.bank));
   // Status notes appear only when there is something to report (no "0 slips" lines).
   const notes:FlexNode[]=[];
   if(summary.pending)notes.push(text(`รอข้อมูล ${summary.pending} สลิป · ไม่รวมในยอด`,{size:'xs',color:'#94703a'}));

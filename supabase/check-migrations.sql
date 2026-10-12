@@ -1,4 +1,4 @@
--- Read-only: reports whether migrations 001–007 are applied. Safe to run any time in Supabase SQL Editor.
+-- Read-only: reports whether migrations 001–008 are applied. Safe to run any time in Supabase SQL Editor.
 select migration,item,ok from (values
   ('001_initial','table public.slips',to_regclass('public.slips') is not null),
   ('001_initial','function public.save_transaction',to_regprocedure('public.save_transaction(uuid,jsonb,uuid)') is not null),
@@ -12,6 +12,7 @@ select migration,item,ok from (values
   ('006_import_reset_manage','column public.slips.origin',exists(select 1 from information_schema.columns where table_schema='public' and table_name='slips' and column_name='origin')),
   ('006_import_reset_manage','function public.reset_transactions_and_slips',to_regprocedure('public.reset_transactions_and_slips(date)') is not null),
   ('007_auto_save','column public.transactions.needs_review',exists(select 1 from information_schema.columns where table_schema='public' and table_name='transactions' and column_name='needs_review')),
-  ('007_auto_save','function public.auto_save_slip',to_regprocedure('public.auto_save_slip(uuid,uuid,uuid,jsonb)') is not null)
+  ('007_auto_save','function public.auto_save_slip',to_regprocedure('public.auto_save_slip(uuid,uuid,uuid,jsonb)') is not null),
+  ('008_quick_shops','column public.profiles.quick_shops',exists(select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='quick_shops'))
 ) as checks(migration,item,ok)
 order by migration,item;

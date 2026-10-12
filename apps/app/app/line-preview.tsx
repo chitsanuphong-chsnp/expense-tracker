@@ -15,14 +15,16 @@ const spaces:Record<string,number>={xs:4,sm:8,md:16,lg:20};
 const previewArt:Record<string,number>={
   'https://expense-tracker.example/line/mascot-reading-v2.png':require('../assets/mascot/reading-v2.png'),
   'https://expense-tracker.example/line/mascot-thinking-v2.png':require('../assets/mascot/thinking-v2.png'),
-  'https://expense-tracker.example/line/mascot-celebrate-v2.png':require('../assets/mascot/celebrate-v2.png')
+  'https://expense-tracker.example/line/mascot-celebrate-v2.png':require('../assets/mascot/celebrate-v2.png'),
+  // Bank logos in the account rows (same files LINE downloads from /line/banks/).
+  ...Object.fromEntries((['ttb','kplus','krungthai','make','cash'] as const).map(code=>[`https://expense-tracker.example/line/banks/${code}.png`,{ttb:require('../public/line/banks/ttb.png'),kplus:require('../public/line/banks/kplus.png'),krungthai:require('../public/line/banks/krungthai.png'),make:require('../public/line/banks/make.png'),cash:require('../public/line/banks/cash.png')}[code]]))
 };
 // Renders the same payload LINE receives. The bubble stays light like LINE itself, in either app theme.
 const px=(v?:string)=>v?parseFloat(v):undefined;
 function Component({node,onAction}:{node:FlexNode;onAction:(uri:string)=>void}){
   if(node.type==='text')return <T style={{fontSize:sizes[node.size??'md']??15,color:node.color??'#253044',fontFamily:node.weight==='bold'?'NotoThaiBold':'NotoThai',textAlign:node.align==='end'?'right':node.align??'left',flex:node.flex,flexShrink:1,marginTop:spaces[node.margin??'']}} numberOfLines={node.wrap?undefined:1}>{node.text}</T>;
   if(node.type==='separator')return <View style={{height:1,backgroundColor:node.color??'#e8ecf3',marginVertical:spaces[node.margin??'']??0}}/>;
-  if(node.type==='image')return <Image accessibilityLabel="ตัวละครใน LINE Flex" source={previewArt[node.url]??{uri:node.url}} resizeMode="contain" style={{width:parseFloat(node.size)||88,height:parseFloat(node.size)||88,aspectRatio:1,flexShrink:0}}/>;
+  if(node.type==='image')return <Image accessibilityLabel={node.url.includes('/banks/')?'โลโก้ธนาคาร':'ตัวละครใน LINE Flex'} source={previewArt[node.url]??{uri:node.url}} resizeMode="contain" style={{width:parseFloat(node.size)||88,height:parseFloat(node.size)||88,aspectRatio:1,flexShrink:0}}/>;
   if(node.type==='button')return <MotionPressable accessibilityRole="button" onPress={()=>onAction(node.action.uri)} style={{minHeight:node.height==='sm'?40:48,flex:node.flex,minWidth:0,flexShrink:1,justifyContent:'center',alignItems:'center',backgroundColor:node.style==='primary'?node.color:'#eef0fa',borderRadius:8,paddingHorizontal:8}}><T style={{fontSize:12,flexShrink:1,textAlign:'center',color:node.style==='primary'?'#ffffff':'#5564dc',fontFamily:'NotoThaiBold'}}>{node.action.label}</T></MotionPressable>;
   const style={flexDirection:node.layout==='horizontal'?'row' as const:'column' as const,gap:spaces[node.spacing??'']??0,backgroundColor:node.background?undefined:node.backgroundColor,flex:node.flex,minWidth:0,
     width:node.width as any,height:px(node.height),borderRadius:px(node.cornerRadius),padding:px(node.paddingAll),marginTop:spaces[node.margin??''],overflow:node.cornerRadius?'hidden' as const:undefined,

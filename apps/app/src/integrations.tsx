@@ -4,14 +4,14 @@ import {useTheme} from './theme-provider';
 import React,{useState,useEffect,useRef} from 'react';
 import {View,Modal,ScrollView,Image,Pressable,Switch} from 'react-native';
 import {useLocalSearchParams,useRouter} from 'expo-router';
-import {Receipt,ChevronRight,Clock,Check,TriangleAlert,Link,X,Settings as SettingsIcon,Palette,UserRound,PiggyBank,IdCard,MessageCircle,FolderOpen,Landmark,Tags,ListChecks,RotateCcw} from 'lucide-react-native';
+import {CloudDownload,ImageUp,Receipt,ChevronRight,Clock,Check,TriangleAlert,Link,X,Settings as SettingsIcon,Palette,UserRound,PiggyBank,IdCard,MessageCircle,FolderOpen,Landmark,Tags,ListChecks,RotateCcw} from 'lucide-react-native';
 import {sourceCodes,money,parseMoney,thaiDate,type Slip,type Transaction} from '@expense/core';
 import * as ImagePicker from 'expo-image-picker';
 import {DateField} from './calendar';
 import {useSuccess} from './success';
 import {ImportProgress} from './import-progress';
 import {useData,newId} from './state';
-import {BankIcon,BankName,bankOf,withBankIcons} from './bank-icon';
+import {AccountName,BankIcon,BankName,withBankIcons} from './bank-icon';
 import {T,Card,Button,ActionRow,Field,Choices,Badge,C,s} from './ui';
 import {Loading,MotionPressable,useMotion} from './motion';
 import {ModalCompanion} from './modal-companion';
@@ -26,7 +26,7 @@ function SavedSummary({tx}:{tx:Transaction}){
     <T style={[s.bold,{color:tx.needs_review?toneText('#8a5fc9'):C.green}]}>{tx.needs_review?'บันทึกอัตโนมัติ · ตรวจกับรูปสลิป':'บันทึกแล้ว'}</T>
     {row('จำนวนเงิน',<T style={{fontFamily:'NotoLatinBold'}}>{money(tx.amount_satang)}</T>)}
     {row('วันเวลา',when)}
-    {row(tx.kind==='transfer'?'โอนจาก → ไป':'บัญชี',<BankName code={bankOf(from,data.sources)}><T>{from?.name??'-'}{to?` → ${to.name}`:''}</T></BankName>)}
+    {row(tx.kind==='transfer'?'โอนจาก → ไป':'บัญชี',<AccountName account={from} sources={data.sources}><T>{from?.name??'-'}{to?` → ${to.name}`:''}</T></AccountName>)}
     {row('ประเภท',tx.kind==='transfer'?'โอนให้บัญชีตัวเอง (ไม่นับในใช้ไป)':'ใช้ไป')}
     {!!tx.counterparty&&row('ผู้รับ',tx.counterparty)}
     {tx.kind!=='transfer'&&row('หมวด',category?.name??'ยังไม่จัดหมวด')}
@@ -37,6 +37,7 @@ export function Slips(){const {reduced}=useMotion(),success=useSuccess(),params=
   // "บันทึกอัตโนมัติ": saved from OCR and not checked yet. "รอข้อมูล": no amount could be read, so not saved.
   const items=state.data.slips.filter(v=>(bank==='all'||v.source_code===bank)&&(filter==='all'||(filter==='pending'?!['linked','duplicate'].includes(v.status):filter==='auto'?!!txOf(v)?.needs_review:v.status===filter))).sort((a,b)=>b.uploaded_at.localeCompare(a.uploaded_at));
   const autoCount=state.data.slips.filter(v=>txOf(v)?.needs_review).length;
+  const pendingCount=state.data.slips.filter(v=>!['linked','duplicate'].includes(v.status)).length;
   async function markReviewed(id:string){setBusy(true);try{
     if(state.demo)state.updateLocal(d=>({...d,transactions:d.transactions.map(t=>t.id===id?{...t,needs_review:false}:t)}));
     else{await state.call(`/transactions/${id}/reviewed`,'POST');await state.refresh();}
@@ -54,7 +55,7 @@ export function Slips(){const {reduced}=useMotion(),success=useSuccess(),params=
     else {await state.call(deleteTarget==='all'?'/slips':`/slips/${deleteTarget.id}`,'DELETE');await state.refresh();}
     setSelected(null);setDeleteTarget(null);success(deleteTarget==='all'?'ลบสลิปทั้งหมดแล้ว':'ลบสลิปแล้ว');
   }catch(e){setMessage((e as any)?.code==='IMPORT_RUNNING'?'กำลังนำเข้าสลิป รอให้เสร็จแล้วลองลบอีกครั้ง':'ลบไม่สำเร็จ ตรวจว่ารัน 004_delete_slips.sql แล้ว');}finally{setBusy(false);}}
-  return <View style={s.section}><AddSlips/><Card style={{gap:14}}><View style={s.between}><View><T style={s.bold}>กล่องสลิป</T><T style={s.muted}>สลิปที่อ่านยอดได้จะบันทึกให้อัตโนมัติ · ที่อ่านยอดไม่ได้รอคุณกรอก</T></View></View><Button secondary disabled={busy||!state.data.slips.some(v=>!v.transaction_id)} onPress={()=>setDeleteTarget('all')}>ลบสลิปที่ยังไม่บันทึกทั้งหมด</Button>{!!message&&!selected&&<T accessibilityRole="alert" style={s.muted}>{message}</T>}<Choices value={filter} onChange={setFilter} items={[{id:'pending',name:'รอข้อมูล'},{id:'auto',name:autoCount?`บันทึกอัตโนมัติ (${autoCount})`:'บันทึกอัตโนมัติ'},{id:'all',name:'ทั้งหมด'},{id:'linked',name:'บันทึกแล้ว'},{id:'duplicate',name:'ซ้ำ'}]}/><Choices value={bank} onChange={setBank} items={[{id:'all',name:'ทุกแหล่ง'},...sourceCodes.map(id=>({id,name:names[id],icon:<BankIcon code={id}/>}))]}/></Card>
+  return <View style={s.section}><AddSlips/><Card style={{gap:14}}><View style={s.between}><View style={{flex:1,gap:2}}><T style={s.bold}>กล่องสลิป</T><T style={s.muted}>อ่านยอดได้ บันทึกให้แล้ว รอคุณตรวจ · อ่านยอดไม่ได้ รอคุณกรอก</T></View>{state.data.slips.some(v=>!v.transaction_id)&&<MotionPressable accessibilityRole="button" disabled={busy} onPress={()=>setDeleteTarget('all')} hitSlop={8}><T style={{fontSize:12,color:C.red}}>ลบที่ยังไม่บันทึก</T></MotionPressable>}</View>{!!message&&!selected&&<T accessibilityRole="alert" style={s.muted}>{message}</T>}<Choices value={filter} onChange={setFilter} items={[{id:'pending',name:pendingCount?`รอข้อมูล ${pendingCount}`:'รอข้อมูล'},{id:'auto',name:autoCount?`ยังไม่ตรวจ ${autoCount}`:'ยังไม่ตรวจ'},{id:'linked',name:'บันทึกแล้ว'},{id:'all',name:'ทั้งหมด'},{id:'duplicate',name:'ซ้ำ'}]}/><Choices value={bank} onChange={setBank} items={[{id:'all',name:'ทุกแหล่ง'},...sourceCodes.map(id=>({id,name:names[id],icon:<BankIcon code={id}/>}))]}/></Card>
     {items.map(v=><MotionPressable accessibilityRole="button" key={v.id} onPress={()=>void open(v)}><Card style={{gap:12}}><View style={s.between}><View style={s.row}><View style={{backgroundColor:tone('#eef0fc'),padding:13,borderRadius:15}}><Receipt color={C.primary} size={22}/></View><View style={{flexShrink:1}}><BankName code={v.source_code}><T style={s.bold}>{names[v.source_code]}</T></BankName><T style={s.muted}>อัปโหลด {new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'medium',timeStyle:'short'}).format(new Date(v.uploaded_at))}</T></View></View><ChevronRight color={C.muted} size={18}/></View><View style={s.between}><T style={[s.muted,{flex:1}]} numberOfLines={1}>{v.name??'สลิปธนาคาร'}</T>{txOf(v)&&<T style={{fontFamily:'NotoLatinBold',fontSize:13,color:C.ink}}>{money(txOf(v)!.amount_satang)}</T>}<Badge text={txOf(v)?.needs_review?'บันทึกอัตโนมัติ · ยังไม่ตรวจ':statuses[v.status]} color={txOf(v)?.needs_review?toneText('#8a5fc9'):v.status==='linked'?C.green:v.status==='duplicate'?C.muted:toneText('#b18c4a')}/></View></Card></MotionPressable>)}{!items.length&&<Card><T style={s.muted}>ไม่มีสลิปในตัวกรองนี้</T></Card>}
     <Modal visible={!!selected} transparent animationType={reduced?'none':'fade'} onRequestClose={()=>setSelected(null)}><View style={{flex:1,backgroundColor:tone('#24334f66'),justifyContent:'center',padding:20}}><ScrollView contentContainerStyle={{maxWidth:650,width:'100%',alignSelf:'center',paddingVertical:20}}><Card enterDelay={0} style={{gap:17}}>{selected&&<><ModalCompanion title={`สลิป ${names[selected.source_code]}`} pose={selected.status==='linked'?'celebrate':['needs_details','qr_unreadable','failed','duplicate'].includes(selected.status)?'thinking':'reading'} action={<MotionPressable accessibilityRole="button" accessibilityLabel="ปิดรายละเอียดสลิป" onPress={()=>setSelected(null)} style={{width:44,height:44,alignItems:'center',justifyContent:'center'}}><X size={18} color={C.muted}/></MotionPressable>}/><Badge text={statuses[selected.status]}/>{imageLoading&&<Loading label="กำลังโหลดภาพสลิป"/>}{!!image&&<Image source={{uri:image}} style={{width:'100%',height:420,borderRadius:14}} resizeMode="contain" accessibilityLabel="ภาพสลิปธนาคาร"/>}{!!message&&<T style={s.muted}>{message}</T>}{selected.error_code&&<T style={s.muted}>สถานะ: {selected.error_code}</T>}<QrDetails slip={selected}/><View><T style={s.label}>ข้อความจาก QR</T><T selectable style={{fontSize:11,color:toneText('#6d7890')}}>{selected.qr_payload??'ยังอ่าน QR ไม่ได้'}</T></View>
       {!selected.transaction_id&&<Button secondary disabled={busy} onPress={()=>setDeleteTarget(selected)}>ลบสลิปนี้</Button>}{selected.status==='duplicate'&&<T>สลิปนี้ซ้ำกับต้นฉบับ ไม่เพิ่มยอดอีกครั้ง</T>}
@@ -66,7 +67,7 @@ export function Slips(){const {reduced}=useMotion(),success=useSuccess(),params=
 // Fetch slips from Drive for any dates, or upload a photo: both read QR + OCR now. Night scans recheck; duplicates are not added twice.
 function AddSlips(){
   const state=useData(),router=useRouter(),success=useSuccess(),today=thaiDate();
-  const [importSince,setImportSince]=useState<string|null>(null),importAbort=useRef<AbortController|null>(null);
+  const [openForm,setOpenForm]=useState<'fetch'|'upload'|null>(null),[importSince,setImportSince]=useState<string|null>(null),importAbort=useRef<AbortController|null>(null);
   const [from,setFrom]=useState(today),[to,setTo]=useState(today),[bank,setBank]=useState('all'),[uploadBank,setUploadBank]=useState<string>('kplus'),[busy,setBusy]=useState(false),[fetchMessage,setFetchMessage]=useState(''),[uploadMessage,setUploadMessage]=useState('');
   // Each result shows under its own section: Drive import or photo upload.
   async function run(fn:()=>Promise<void>,show:(m:string)=>void){setBusy(true);setFetchMessage('');setUploadMessage('');try{await fn();}catch(e){show(e instanceof Error?e.message:'ทำรายการไม่สำเร็จ');}finally{setBusy(false);}}
@@ -80,12 +81,20 @@ function AddSlips(){
       // Each call works up to ~60 s on the server; wait up to 2 min so a busy round is not cut off.
       const options={timeoutMs:120000,signal:controller.signal};
       const r=await drainImport(state,await state.call('/sync','POST',{from,to,source:bank==='all'?null:bank},options),options);
-      const found=(await state.call(`/sync/status?since=${encodeURIComponent(since)}`).catch(()=>null))?.slips;
+      const status=await state.call(`/sync/status?since=${encodeURIComponent(since)}`).catch(()=>null),found=status?.slips,saved=status?.saved??(r.auto_saved??0);
       await state.refresh();
       if(r.busy)setFetchMessage('ระบบกำลังทำงานรอบตั้งเวลาอยู่ สลิปจะขึ้นเมื่อรอบนั้นเสร็จ');
       else if(r.pending)setFetchMessage(`ดึงแล้วบางส่วน เหลือ ${r.pending} งาน กดอีกครั้งได้`);
       else if(found===0)setFetchMessage(`ไม่พบสลิปใหม่ใน Drive ช่วง ${from===to?from:`${from} ถึง ${to}`} · โฟลเดอร์วันนั้นยังไม่มีรูป (มือถืออัปโหลด 23:30) หรือดึงไปแล้ว`);
-      else success(found?`ดึงสลิปเสร็จแล้ว · ${found} ใบ`:'ดึงสลิปเสร็จแล้ว');
+      else{
+        // Say what happened: saved automatically (check in "ยังไม่ตรวจ") and what still needs typing in.
+        // saved includes earlier waiting slips saved at the start (r.auto_saved); only new slips can still be waiting.
+        const waiting=Math.max(0,(found??0)-Math.max(0,saved-(r.auto_saved??0)));
+        success(saved?`บันทึกให้แล้ว ${saved} รายการ`:'ดึงสลิปเสร็จแล้ว');
+        // New slips came in: send one Flex for the imported days (skipped quietly when LINE is not connected).
+        const line=saved||found?await state.call('/line/import-summary','POST',{from,to}).then(x=>x.sent as boolean).catch(()=>false):false;
+        setFetchMessage([saved?`บันทึกอัตโนมัติ ${saved} รายการ · ตรวจได้ในแท็บ "ยังไม่ตรวจ"`:'',waiting?`อ่านยอดไม่ได้ ${waiting} ใบ · รอคุณกรอกในแท็บ "รอข้อมูล"`:'',line?'ส่งสรุปเข้า LINE แล้ว':''].filter(Boolean).join('\n'));
+      }
     }catch(e){
       if((e as any)?.code!=='CANCELLED')throw e;
     }finally{importAbort.current=null;setImportSince(null);}
@@ -111,16 +120,25 @@ function AddSlips(){
     if(r.transaction_id){success('บันทึกจากสลิปแล้ว ตรวจได้เลย');router.push({pathname:'/record',params:{id:r.transaction_id}});return;}
     router.push({pathname:'/record',params:{slip:r.slip_id}});
   },setUploadMessage);
+  // Two actions up front; each opens its own short form. The card stays mounted, so an import keeps running and
+  // its progress stays visible even when the form is folded away.
+  const toggle=(mode:'fetch'|'upload')=>setOpenForm(v=>v===mode?null:mode);
+  const action=(mode:'fetch'|'upload',label:string,Icon:typeof CloudDownload)=><MotionPressable accessibilityRole="button" accessibilityState={{expanded:openForm===mode}} onPress={()=>toggle(mode)} style={{flex:1,minHeight:52,borderRadius:16,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,backgroundColor:openForm===mode?C.button:tone('#eef1fb'),borderWidth:1,borderColor:openForm===mode?C.button:tone('#e1e6f5')}}><Icon size={18} color={openForm===mode?'#ffffff':C.primary}/><T style={{fontFamily:'NotoThaiBold',fontSize:13,color:openForm===mode?'#ffffff':C.primary}}>{label}</T></MotionPressable>;
   return <Card style={{gap:14}}>
-    <T style={s.bold}>ดึงสลิปจาก Drive</T>
-    <View style={[s.row,{gap:10}]}><View style={{flex:1}}><DateField label="ตั้งแต่" value={from} onChange={setFrom}/></View><View style={{flex:1}}><DateField label="ถึง" value={to} onChange={setTo}/></View></View>
-    <Choices value={bank} onChange={setBank} items={[{id:'all',name:'ทุกธนาคาร'},...sourceCodes.map(id=>({id,name:names[id],icon:<BankIcon code={id}/>}))]}/>
-    <Button loading={busy} onPress={()=>void fetchSlips()}>ดึงสลิปตอนนี้</Button>
+    <View style={s.between}><T style={s.bold}>เพิ่มสลิป</T><T style={{fontSize:11,color:C.muted}}>อ่านยอดได้ บันทึกให้อัตโนมัติ</T></View>
+    <View style={{flexDirection:'row',gap:10}}>{action('fetch','ดึงจาก Drive',CloudDownload)}{action('upload','อัปโหลดรูป',ImageUp)}</View>
+    {openForm==='fetch'&&<View style={{gap:12}}>
+      <View style={[s.row,{gap:10}]}><View style={{flex:1}}><DateField label="ตั้งแต่" value={from} onChange={setFrom}/></View><View style={{flex:1}}><DateField label="ถึง" value={to} onChange={setTo}/></View></View>
+      <Choices value={bank} onChange={setBank} items={[{id:'all',name:'ทุกธนาคาร'},...sourceCodes.map(id=>({id,name:names[id],icon:<BankIcon code={id}/>}))]}/>
+      <Button loading={busy} onPress={()=>void fetchSlips()}>ดึงสลิปตอนนี้</Button>
+    </View>}
     {importSince&&<ImportProgress since={importSince} onCancel={()=>void cancelImport()}/>}
     {!!fetchMessage&&<T accessibilityRole="alert" style={s.muted}>{fetchMessage}</T>}
-    <T style={s.bold}>หรืออัปโหลดรูปสลิปเอง</T>
-    <Choices value={uploadBank} onChange={v=>setUploadBank(v??'kplus')} items={sourceCodes.map(id=>({id,name:names[id],icon:<BankIcon code={id}/>}))}/>
-    <Button secondary disabled={busy} onPress={()=>void upload()}>เลือกรูปสลิป</Button>
+    {openForm==='upload'&&<View style={{gap:12}}>
+      <T style={s.label}>สลิปของธนาคาร</T>
+      <Choices value={uploadBank} onChange={v=>setUploadBank(v??'kplus')} items={sourceCodes.map(id=>({id,name:names[id],icon:<BankIcon code={id}/>}))}/>
+      <Button disabled={busy} onPress={()=>void upload()}>เลือกรูปสลิป</Button>
+    </View>}
     {!!uploadMessage&&<T accessibilityRole="alert" style={s.muted}>{uploadMessage}</T>}
   </Card>;
 }
@@ -145,7 +163,7 @@ function AccountRow({id}:{id:string}){
     else await state.call(`/accounts/${id}`,'DELETE');
   },'ลบบัญชีแล้ว');
   return <View style={{gap:8,borderTopWidth:1,borderColor:tone('#eef1f6'),paddingTop:10}}>
-    <View style={s.between}><View style={{flex:1}}><BankName code={bankOf(account,state.data.sources)} size={22}><T style={s.bold}>{account.name}</T></BankName></View><Button secondary onPress={()=>setOpen(!open)}>{open?'ปิด':'แก้ไข'}</Button></View>
+    <View style={s.between}><View style={{flex:1}}><AccountName account={account} sources={state.data.sources} size={22}><T style={s.bold}>{account.name}</T></AccountName></View><Button secondary onPress={()=>setOpen(!open)}>{open?'ปิด':'แก้ไข'}</Button></View>
     {open&&<><Field label="ชื่อบัญชี" value={name} onChangeText={setName}/>{account.kind==='bank'&&<Field label="เลขบัญชี/พร้อมเพย์บนสลิป (คั่นด้วยจุลภาค)" value={numbers} onChangeText={setNumbers} keyboardType="numbers-and-punctuation"/>}
       <ActionRow><Button secondary disabled={busy} onPress={()=>void remove()}>ลบบัญชี</Button><Button loading={busy} onPress={()=>void save()}>บันทึก</Button></ActionRow></>}
     {!!note&&<T style={s.muted}>{note}</T>}

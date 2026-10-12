@@ -7,7 +7,8 @@
 --   00:00                    (17:00 UTC)        last night call
 --   08:00                    (01:00 UTC)        LINE reports: daily / Monday weekly / 1st monthly
 --   08:05                    (01:05 UTC)        retry round for a failed report
--- OCR runs on GitHub Actions (.github/workflows/slip-ocr.yml), not here.
+-- OCR (Tesseract) runs inside the API during the night calls; the GitHub Actions Paddle workflow is a manual backup only.
+-- If cron.job_run_details says: null value in column "url" of relation "http_request_queue", a Vault secret above is missing.
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 do $$ declare old_id bigint; begin

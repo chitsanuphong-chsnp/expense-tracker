@@ -34,9 +34,9 @@ it('imports a chosen date range and source, and rejects a reversed range',async(
 });
 
 it('reports import progress for the progress bar and rejects a bad start time',async()=>{
-  getUser.mockResolvedValue({data:{user:user('owner-a')},error:null});importProgress.mockResolvedValue({pending:3,done:5,slips:4});
+  getUser.mockResolvedValue({data:{user:user('owner-a')},error:null});importProgress.mockResolvedValue({pending:3,done:5,slips:4,saved:2});
   const get=(q:string)=>createApp().request(`/api/sync/status${q}`,{headers:{Authorization:'Bearer token'}});
-  const r=await get('?since=2026-10-11T03:00:00.000Z');expect(await r.json()).toEqual({pending:3,done:5,slips:4});
+  const r=await get('?since=2026-10-11T03:00:00.000Z');expect(await r.json()).toEqual({pending:3,done:5,slips:4,saved:2});
   expect(importProgress).toHaveBeenCalledWith('owner-a','2026-10-11T03:00:00.000Z');
   expect((await get('?since=yesterday')).status).toBe(400);
 });

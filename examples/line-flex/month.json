@@ -79,13 +79,12 @@
           "alignItems": "center",
           "contents": [
             {
-              "type": "box",
-              "layout": "vertical",
-              "contents": [],
-              "width": "8px",
-              "height": "8px",
-              "cornerRadius": "4px",
-              "backgroundColor": "#5575e7"
+              "type": "image",
+              "url": "https://expense-tracker.example/line/banks/ttb.png",
+              "size": "20px",
+              "aspectRatio": "1:1",
+              "aspectMode": "fit",
+              "flex": 0
             },
             {
               "type": "text",
@@ -114,13 +113,12 @@
           "alignItems": "center",
           "contents": [
             {
-              "type": "box",
-              "layout": "vertical",
-              "contents": [],
-              "width": "8px",
-              "height": "8px",
-              "cornerRadius": "4px",
-              "backgroundColor": "#34ac95"
+              "type": "image",
+              "url": "https://expense-tracker.example/line/banks/kplus.png",
+              "size": "20px",
+              "aspectRatio": "1:1",
+              "aspectMode": "fit",
+              "flex": 0
             },
             {
               "type": "text",
@@ -149,13 +147,12 @@
           "alignItems": "center",
           "contents": [
             {
-              "type": "box",
-              "layout": "vertical",
-              "contents": [],
-              "width": "8px",
-              "height": "8px",
-              "cornerRadius": "4px",
-              "backgroundColor": "#5ba7dc"
+              "type": "image",
+              "url": "https://expense-tracker.example/line/banks/krungthai.png",
+              "size": "20px",
+              "aspectRatio": "1:1",
+              "aspectMode": "fit",
+              "flex": 0
             },
             {
               "type": "text",
@@ -184,13 +181,12 @@
           "alignItems": "center",
           "contents": [
             {
-              "type": "box",
-              "layout": "vertical",
-              "contents": [],
-              "width": "8px",
-              "height": "8px",
-              "cornerRadius": "4px",
-              "backgroundColor": "#9d7ae5"
+              "type": "image",
+              "url": "https://expense-tracker.example/line/banks/make.png",
+              "size": "20px",
+              "aspectRatio": "1:1",
+              "aspectMode": "fit",
+              "flex": 0
             },
             {
               "type": "text",
@@ -219,13 +215,12 @@
           "alignItems": "center",
           "contents": [
             {
-              "type": "box",
-              "layout": "vertical",
-              "contents": [],
-              "width": "8px",
-              "height": "8px",
-              "cornerRadius": "4px",
-              "backgroundColor": "#e6ad4b"
+              "type": "image",
+              "url": "https://expense-tracker.example/line/banks/cash.png",
+              "size": "20px",
+              "aspectRatio": "1:1",
+              "aspectMode": "fit",
+              "flex": 0
             },
             {
               "type": "text",

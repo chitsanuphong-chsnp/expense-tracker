@@ -2,7 +2,7 @@ import {beforeAll,afterAll,it,expect} from 'vitest';
 import {PGlite} from '@electric-sql/pglite';
 import {readFile} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
-import {autoTransaction,type Account} from '../packages/core/src/index.ts';
+import {autoTransaction,accountBank,accountForBank,defaultQuickShops,quickShop,suggestedCategories,type Account} from '../packages/core/src/index.ts';
 let db:PGlite;const owner=randomUUID(),other=randomUUID();
 const sql=(f:string)=>readFile(new URL(`../supabase/migrations/${f}`,import.meta.url),'utf8');
 const as=async<T>(uid:string,fn:()=>Promise<T>)=>{await db.query("select set_config('request.jwt.claim.sub',$1,false)",[uid]);await db.exec('set role authenticated');try{return await fn();}finally{await db.exec('reset role');}};
@@ -61,4 +61,19 @@ it('auto_save_slip links once, marks the row for review, and only the worker may
   await db.query('update transactions set needs_review=true where id=$1',[id]);
   await as(owner,()=>db.query('select save_transaction($1,$2,null)',[id,{...data,amount_satang:13000}]));
   expect(await one('select needs_review,amount_satang::int amount from transactions where id=$1',[id])).toEqual({needs_review:false,amount:13000});
+});
+it('finds a slip bank\'s account from the linked Drive source, else from the account name',()=>{
+  const make=acc(randomUUID(),'MAKE by KBank'),ktb=acc(randomUUID(),'กรุงไทย');
+  const accounts=[ttb,kplus,make,ktb,cash];
+  expect(accountForBank('make',accounts)).toBe(make.id);
+  expect(accountForBank('krungthai',accounts)).toBe(ktb.id);
+  expect(accountForBank('kplus',accounts,[{source_code:'kplus',account_id:ttb.id}])).toBe(ttb.id);
+  expect(accountForBank('kplus',[ttb,cash])).toBeNull();
+  expect(accountBank(cash)).toBeNull();expect(accountBank(make)).toBe('make');
+});
+it('starts quick entry with 7-Eleven paid by ttb first, then cash, and validates shops',()=>{
+  expect(defaultQuickShops([ttb,kplus,cash])).toEqual([{id:'7eleven',name:'7-Eleven',icon:'7eleven',account_ids:[ttb.id,cash.id],category_id:null}]);
+  expect(quickShop.safeParse({id:'x',name:'ร้านข้าว',icon:'food',account_ids:[cash.id],category_id:null}).success).toBe(true);
+  expect(quickShop.safeParse({id:'x',name:' ',icon:'food',account_ids:[],category_id:null}).success).toBe(false);
+  expect(new Set(suggestedCategories.map(([n])=>n)).size).toBe(suggestedCategories.length);
 });

@@ -13,9 +13,9 @@ beforeAll(async()=>{
 afterAll(async()=>{await db.close();});
 it('reports pending migrations, then all applied and rerunnable',async()=>{
  const pending=(await check()).filter(r=>!r.ok).map(r=>r.migration);
- expect(new Set(pending)).toEqual(new Set(['002_realtime','003_ocr','004_delete_slips','005_own_identity','006_import_reset_manage','007_auto_save']));
- for(const file of ['002_realtime','003_ocr','004_delete_slips','005_own_identity','006_import_reset_manage','007_auto_save'])await db.exec(await sql(`migrations/${file}.sql`));
- const rows=await check();expect(rows).toHaveLength(13);expect(rows.every(r=>r.ok)).toBe(true);
+ expect(new Set(pending)).toEqual(new Set(['002_realtime','003_ocr','004_delete_slips','005_own_identity','006_import_reset_manage','007_auto_save','008_quick_shops']));
+ for(const file of ['002_realtime','003_ocr','004_delete_slips','005_own_identity','006_import_reset_manage','007_auto_save','008_quick_shops'])await db.exec(await sql(`migrations/${file}.sql`));
+ const rows=await check();expect(rows).toHaveLength(14);expect(rows.every(r=>r.ok)).toBe(true);
  await db.exec(await sql('migrations/005_own_identity.sql'));
  await db.query('insert into auth.users(id) values(gen_random_uuid())');
  expect((await db.query<{own_names:string[]}>('select own_names from profiles')).rows[0].own_names).toEqual([]);

@@ -4,7 +4,7 @@ import { admin,checked,dataset,rows } from './db.ts';
 import { listFolder,downloadFile,assertDriveOwner } from './drive.ts';
 import { decodeQr } from './qr.ts';
 import { flexReport,pushReport } from './line.ts';
-import { shouldScan,dueReportPeriods,summarize,bangkokParts,dailyPendingWindow,thaiDate,autoTransaction } from '@expense/core';
+import { shouldScan,dueReportPeriods,summarize,bangkokParts,dailyPendingWindow,thaiDate,autoTransaction,accountForBank } from '@expense/core';
 
 export type ScanRange={from:string;to:string};
 export async function enqueueScan(owner:string,source:any,key:string,range:ScanRange) {
@@ -72,7 +72,8 @@ export async function autoSaveSlip(owner:string,slipId:string):Promise<string|nu
   if(!slip||slip.transaction_id||slip.status==='duplicate'||!slip.ocr_details||slip.ocr_details.error)return null;
   const source=checked(await (slip.source_id?db.from('drive_sources').select('account_id').eq('owner_id',owner).eq('id',slip.source_id):db.from('drive_sources').select('account_id').eq('owner_id',owner).eq('source_code',slip.source_code)).maybeSingle());
   const [accounts,rules]=await Promise.all([rows(db,'accounts',owner),rows(db,'category_rules',owner)]);
-  const input=autoTransaction(slip,source?.account_id??null,accounts,rules);
+  const sources=await rows(db,'drive_sources',owner);
+  const input=autoTransaction(slip,source?.account_id??accountForBank(slip.source_code,accounts,sources),accounts,rules);
   if(!input)return null;
   // Before migration 007 is run the function is missing: keep the slip pending (old behaviour) instead of failing the import.
   try{return checked(await db.rpc('auto_save_slip',{p_owner:owner,p_slip_id:slip.id,p_id:randomUUID(),p_data:input}));}
@@ -161,12 +162,13 @@ function scanRange(payload:any):ScanRange{
   const today=thaiDate();return {from:thaiDate(new Date(Date.now()-86400000)),to:today};
 }
 // Live progress for the app's import bar: import jobs still waiting, and those finished since the import began
-// (QR jobs created since then = slips found).
+// (QR jobs created since then = slips found; transactions saved automatically since then = saved).
 export async function importProgress(owner:string,since:string) {
   const db=admin(),count=async(q:any)=>{const r=await q;checked(r);return r.count??0;};
   const jobs=()=>db.from('jobs').select('id',{count:'exact',head:true}).eq('owner_id',owner).in('kind',['scan','qr']);
-  const [pending,done,slips]=await Promise.all([count(jobs().in('status',['pending','running'])),count(jobs().in('status',['done','failed']).gte('created_at',since)),count(db.from('jobs').select('id',{count:'exact',head:true}).eq('owner_id',owner).eq('kind','qr').gte('created_at',since))]);
-  return {pending,done,slips};
+  const [pending,done,slips,saved]=await Promise.all([count(jobs().in('status',['pending','running'])),count(jobs().in('status',['done','failed']).gte('created_at',since)),count(db.from('jobs').select('id',{count:'exact',head:true}).eq('owner_id',owner).eq('kind','qr').gte('created_at',since)),
+    count(db.from('transactions').select('id',{count:'exact',head:true}).eq('owner_id',owner).eq('source','auto').gte('created_at',since))]);
+  return {pending,done,slips,saved};
 }
 // The app's cancel button: drop this owner's queued scan/QR jobs. A job already running finishes its current step;
 // its final status update then finds no row. Slips already imported stay.

@@ -56,3 +56,19 @@ it('shows own-account transfers apart from spending, only when there are some',(
   expect(texts(flexReport(base,'day:2026-10-10','https://app.example','ตรวจสำเร็จ').contents.body.contents)).toContain('โอนเข้าบัญชีตัวเอง ฿5,000.00 (2 รายการ) · ไม่รวมในยอด');
   expect(texts(flexReport({...base,transfers:{amount_satang:0,count:0}},'day:2026-10-10','https://app.example','ตรวจสำเร็จ').contents.body.contents).some(t=>t.startsWith('โอนเข้าบัญชีตัวเอง'))).toBe(false);
 });
+it('puts the bank logo (or the cash icon) before each account, a colour dot without a public origin',()=>{
+  const rows=(origin:string)=>flexReport(example('day'),periods.day.key,origin,'ตรวจสำเร็จ').contents.body.contents.filter(n=>n.type==='box'&&n.layout==='horizontal') as any[];
+  expect(rows('https://app.example').map(r=>r.contents[0].url)).toEqual(['ttb','kplus','krungthai','make','cash'].map(c=>`https://app.example/line/banks/${c}.png`));
+  expect(rows('http://localhost:8081').every(r=>r.contents[0].type==='box'&&r.contents[0].width==='8px')).toBe(true);
+});
+it('ships every bank icon the Flex links to',async()=>{
+  for(const code of ['ttb','kplus','krungthai','make','cash']){
+    const bytes=await readFile(new URL(`../apps/app/public/line/banks/${code}.png`,import.meta.url));
+    const m=await sharp(bytes).metadata();expect([m.format,m.width,m.height]).toEqual(['png',96,96]);expect(bytes.length).toBeLessThan(20000);
+  }
+});
+it('titles an import summary by its date range',()=>{
+  const m=flexReport(example('day'),'range:2026-10-05:2026-10-11','https://app.example','ตรวจสำเร็จ');
+  expect(texts(m.contents.header.contents)).toContain('สรุป 5 ต.ค. – 11 ต.ค.');
+  expect(texts(flexReport(example('day'),'day:2026-10-11','https://app.example','ตรวจสำเร็จ').contents.header.contents)).toContain('สรุปวันที่ 11 ต.ค.');
+});

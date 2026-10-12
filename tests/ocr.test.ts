@@ -37,3 +37,7 @@ it('fills month/year from the upload day only when an unreadable month still has
  expect(extractFields('6 M.A. 69 20:36 น.','kplus').date).toBeNull();
  expect(extractFields('6 ต.ค. 69 20:36 น.','kplus',upload)).not.toHaveProperty('date_source');
 });
+it('reads K+ amounts when OCR drops vowels and uses dots as thousands separators',()=>{
+ expect(extractFields('ธ.ทหารไทยธนชาต\nXXX-X-X2778-X\nจานวน\n1.000.00 บาท\nคาธรรมเนยม\nร |\n0.00 บาท','kplus').amount_satang).toBe(100000);
+ expect(extractFields('จำนวน:\n1,234,567.89 บาท','kplus').amount_satang).toBe(123456789);
+});

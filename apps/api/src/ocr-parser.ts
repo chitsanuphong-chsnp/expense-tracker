@@ -1,13 +1,17 @@
 import {thaiDate,type SourceCode,type OcrDraft} from '@expense/core';
+// Bump when parsing improves: drafts from an older parser with no amount are read again once (see staleDraft).
+export const OCR_PARSER=2;
 export function extractFields(text:string,bank:SourceCode,uploadedAt?:string):OcrDraft{
  const clean=text.normalize('NFKC').replace(/\u0e4d\u0e32/g,'ำ');
  const lines=clean.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
  let amount:number|null=null;
- const label=lines.findIndex(l=>/จำนวน(?:เงิน)?/.test(l));
- const money=(s:string)=>{const m=s.match(/(?:^|[^\d])([\d,]+\.\d{2})(?!\d)/);return m?Math.round(Number(m[1].replaceAll(',',''))*100):null;};
- if(label>=0){for(const line of lines.slice(label,label+6)){if(/ค่าธรรมเน/.test(line))break;const n=money(line);if(n!==null){amount=n;break;}}}
+ // Tesseract often drops ำ/่/ี on K+ slips (จานวน, คาธรรมเนยม); thousands may come out as dots (1.000.00).
+ const fee=(l:string)=>/ค.?าธรรม/.test(l);
+ const label=lines.findIndex(l=>/จ[ำาํ]{0,2}นวน/.test(l));
+ const money=(s:string)=>{const m=s.match(/(?:^|[^\d.,])(\d{1,3}(?:[.,]\d{3})+|\d+)[.,](\d{2})(?![\d.,]?\d)/);return m?Number(m[1].replace(/[.,]/g,''))*100+Number(m[2]):null;};
+ if(label>=0){for(const line of lines.slice(label,label+6)){if(fee(line))break;const n=money(line);if(n!==null){amount=n;break;}}}
  if(amount===null&&bank==='ttb'){
-   const cutoff=lines.findIndex(l=>/ค่าธรรมเน/.test(l));
+   const cutoff=lines.findIndex(fee);
    const candidates=lines.slice(0,cutoff<0?0:cutoff).map(money).filter(x=>x!==null);
    if(candidates.length===1)amount=candidates[0];
  }
@@ -29,5 +33,5 @@ export function extractFields(text:string,bank:SourceCode,uploadedAt?:string):Oc
  // Masked account lines (xxx-x-x8536-x): first is the sender, second the recipient.
  const masked=lines.map(l=>l.replace(/[=\s]/g,'-')).filter(l=>/^[xX0-9-]{8,}$/.test(l)&&(l.match(/x/gi)?.length??0)>=2&&(l.match(/\d/g)?.length??0)>=3);
   const names=bank==='make'?lines.filter(l=>/^[ก-๙]{5,}(?:\s+[ก-๙]+)*$/.test(l)&&!/(โอนเงิน|ค่าธรรมเน|จำนวน|รายการ|ตรวจสอบ|สแกน|สำเร็จ|บาท)/.test(l)):lines.filter(l=>/^(?:นาย|นาง|น\.ส\.)/.test(l));
- return {engine:'pending',amount_satang:amount,date,time,sender:names[0]??null,recipient:names[1]??null,requires_review:true,sender_account:masked[0]??null,recipient_account:masked[1]??null,...(dateSource?{date_source:dateSource}:{})};
+ return {engine:'pending',amount_satang:amount,date,time,sender:names[0]??null,recipient:names[1]??null,requires_review:true,sender_account:masked[0]??null,recipient_account:masked[1]??null,parser:OCR_PARSER,...(dateSource?{date_source:dateSource}:{})};
 }

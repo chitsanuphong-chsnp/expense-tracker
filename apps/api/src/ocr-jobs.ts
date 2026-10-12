@@ -2,12 +2,17 @@ import type {OcrDraft,SourceCode} from '@expense/core';
 import {admin,checked} from './db.ts';
 import {downloadFile,assertDriveOwner} from './drive.ts';
 import {slipOcrDraft} from './ocr.ts';
+import {OCR_PARSER} from './ocr-parser.ts';
 
 // Scheduled OCR outside Vercel (GitHub Actions). Callers log counts only: Actions logs of a public repository are public.
 type Row={id:string;owner_id:string;drive_file_id:string;source_code:SourceCode;uploaded_at:string;ocr_details:OcrDraft|null};
 export const MAX_OCR_ATTEMPTS=3;
 export function needsOcr(row:Pick<Row,'ocr_details'>) {
-  return !row.ocr_details||(!!row.ocr_details.error&&(row.ocr_details.attempts??1)<MAX_OCR_ATTEMPTS);
+  return !row.ocr_details||staleDraft(row.ocr_details)||(!!row.ocr_details.error&&(row.ocr_details.attempts??1)<MAX_OCR_ATTEMPTS);
+}
+// A readable draft without an amount (null or 0) from an older parser: worth one more read after a parser fix.
+export function staleDraft(d:OcrDraft|null){
+  return !!d&&!d.error&&!(Number(d.amount_satang)>0)&&(d.parser??1)<OCR_PARSER;
 }
 export async function pendingOcrSlips(db=admin()):Promise<Row[]> {
   const owner=process.env.DRIVE_OWNER_ID;if(!owner)throw new Error('DRIVE_NOT_ENABLED_FOR_ACCOUNT');

@@ -33,3 +33,5 @@ If Tesseract proves inaccurate, `.github/workflows/slip-ocr.yml` runs PaddleOCR 
 ## Accuracy check on all Drive slips (local, read-only)
 
 `npx tsx --env-file=apps/api/.env scripts/ocr-eval.ts [limit]` lists every image in the configured Drive folders, runs the configured OCR engine, and writes `.local/ocr-eval.csv` (gitignored). For slips already recorded as transactions it compares OCR amount, date and time with the recorded values and prints match counts. It never writes to the database. Keep the CSV private.
+
+12 Oct 2026: some K-PLUS slips came out as ฿0.00. Tesseract read `จานวน` / `1.000.00 บาท` / `คาธรรมเนยม` (missing ำ, ่, ี and dots as thousands separators), so the label was missed and `000.00` was taken. The parser now accepts those label spellings and `1.000.00`-style amounts (`tests/ocr.test.ts`). Drafts now carry `parser` (`OCR_PARSER` in `ocr-parser.ts`). A readable draft with no amount (null or 0) from an older parser is read again once on "ดึงจาก Drive" or the OCR job, then auto-saved if the amount is now read; bump `OCR_PARSER` after future parser fixes.

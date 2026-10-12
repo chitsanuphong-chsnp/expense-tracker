@@ -1,4 +1,5 @@
 import {ocrEnabled,slipOcrDraft} from './ocr.ts';
+import {staleDraft} from './ocr-jobs.ts';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
@@ -131,7 +132,7 @@ export function createApp() {
     for(const source of chosen)await enqueueScan(owner,source,`manual:${source.id}:${body.from}:${body.to}:${Date.now()}`,{from:body.from,to:body.to});
     // One button also drafts OCR for earlier slips that have none yet.
     if(ocrEnabled()){
-      const pending=(await rows(db,'slips',owner)).filter((s:any)=>s.origin!=='upload'&&!s.transaction_id&&s.status!=='duplicate'&&(!s.ocr_details||s.ocr_details.error));
+      const pending=(await rows(db,'slips',owner)).filter((s:any)=>s.origin!=='upload'&&!s.transaction_id&&s.status!=='duplicate'&&(!s.ocr_details||s.ocr_details.error||staleDraft(s.ocr_details)));
       const key=Math.floor(Date.now()/300000);
       for(let start=0;start<pending.length;start+=100)checked(await db.from('jobs').upsert(pending.slice(start,start+100).map((s:any)=>({owner_id:owner,job_key:`ocr-backfill:${s.id}:${key}`,kind:'qr',payload:{slip_id:s.id}})),{onConflict:'owner_id,job_key',ignoreDuplicates:true}));
     }
